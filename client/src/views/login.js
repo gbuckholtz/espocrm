@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -51,7 +51,8 @@ define('views/login', 'view', function (Dep) {
 
         data: function () {
             return {
-                logoSrc: this.getLogoSrc()
+                logoSrc: this.getLogoSrc(),
+                showForgotPassword: this.getConfig().get('passwordRecoveryEnabled'),
             };
         },
 
@@ -110,6 +111,7 @@ define('views/login', 'view', function (Dep) {
                     'Authorization': 'Basic ' + Base64.encode(userName  + ':' + password),
                     'Espo-Authorization': Base64.encode(userName + ':' + password),
                     'Espo-Authorization-By-Token': false,
+                    'Espo-Authorization-Create-Token-Secret': true,
                 },
             }).then(
                 function (data) {

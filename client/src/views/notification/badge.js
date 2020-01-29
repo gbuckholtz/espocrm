@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -49,7 +49,7 @@ define('views/notification/badge', 'view', function (Dep) {
         setup: function () {
             this.soundPath = this.getBasePath() + (this.getConfig().get('notificationSound') || this.soundPath);
 
-            this.notificationSoundsDisabled = this.getConfig().get('notificationSoundsDisabled');
+            this.notificationSoundsDisabled = true;
 
             this.useWebSocket = this.getConfig().get('useWebSocket');
 
@@ -129,11 +129,15 @@ define('views/notification/badge', 'view', function (Dep) {
             this.$badge.attr('title', this.translate('New notifications') + ': ' + count);
 
             this.$number.removeClass('hidden').html(count.toString());
+
+            this.getHelper().pageTitle.setNotificationNumber(count);
         },
 
         hideNotRead: function () {
             this.$badge.attr('title', this.translate('Notifications'));
             this.$number.addClass('hidden').html('');
+
+            this.getHelper().pageTitle.setNotificationNumber(0);
         },
 
         checkBypass: function () {
@@ -305,7 +309,11 @@ define('views/notification/badge', 'view', function (Dep) {
                     this.checkUpdates();
                     this.broadcastNotificationsRead();
                 }, this);
-            }.bind(this));
+
+                this.listenToOnce(view, 'close', function () {
+                    this.closeNotifications();
+                }, this);
+            });
 
             $document = $(document);
             $document.on('mouseup.notification', function (e) {
@@ -315,6 +323,12 @@ define('views/notification/badge', 'view', function (Dep) {
                     }
                 }
             }.bind(this));
+
+            if (window.innerWidth < this.getThemeManager().getParam('screenWidthXs')) {
+                this.listenToOnce(this.getRouter(), 'route', function () {
+                    this.closeNotifications();
+                }, this);
+            }
         },
 
         closeNotifications: function () {

@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -37,10 +37,6 @@ use Composer\Semver\Semver;
 
 abstract class Base
 {
-    private $config;
-
-    private $entityManager;
-
     private $helper;
 
     protected $data;
@@ -53,9 +49,11 @@ abstract class Base
 
     private $zipUtil;
 
-    private $fileManager;
+    private $databaseHelper;
 
     protected $processId = null;
+
+    protected $parentProcessId = null;
 
     protected $manifestName = 'manifest.json';
 
@@ -132,35 +130,43 @@ abstract class Base
         return $this->zipUtil;
     }
 
+    protected function getDatabaseHelper()
+    {
+        if (!isset($this->databaseHelper)) {
+            $this->databaseHelper = new \Espo\Core\Utils\Database\Helper($this->getConfig());
+        }
+
+        return $this->databaseHelper;
+    }
+
     protected function getFileManager()
     {
-        if (!isset($this->fileManager)) {
-            $this->fileManager = $this->getContainer()->get('fileManager');
-        }
-        return $this->fileManager;
+        return $this->getContainer()->get('fileManager');
     }
 
     protected function getConfig()
     {
-        if (!isset($this->config)) {
-            $this->config = $this->getContainer()->get('config');
-        }
-        return $this->config;
+        return $this->getContainer()->get('config');
     }
 
     public function getEntityManager()
     {
-        if (!isset($this->entityManager)) {
-            $this->entityManager = $this->getContainer()->get('entityManager');
-        }
-        return $this->entityManager;
+        return $this->getContainer()->get('entityManager');
     }
 
-    protected function throwErrorAndRemovePackage($errorMessage = '')
+    public function throwErrorAndRemovePackage($errorMessage = '', $deletePackage = true, $systemRebuild = true)
     {
-        $this->deletePackageFiles();
-        $this->deletePackageArchive();
-        $this->disableMaintenanceMode();
+        if ($deletePackage) {
+            $this->deletePackageFiles();
+            $this->deletePackageArchive();
+        }
+
+        $this->disableMaintenanceMode(true);
+
+        if ($systemRebuild) {
+            $this->systemRebuild();
+        }
+
         throw new Error($errorMessage);
     }
 
@@ -186,9 +192,19 @@ abstract class Base
         return $this->processId;
     }
 
-    protected function setProcessId($processId)
+    protected function getParentProcessId()
+    {
+        return $this->parentProcessId;
+    }
+
+    public function setProcessId($processId)
     {
         $this->processId = $processId;
+    }
+
+    public function setParentProcessId($processId)
+    {
+        $this->parentProcessId = $processId;
     }
 
     /**
@@ -205,12 +221,26 @@ abstract class Base
 
         //check php version
         if (isset($manifest['php'])) {
-            $res &= $this->checkVersions($manifest['php'], System::getPhpVersion(), 'Your PHP version does not support this installation package.');
+            $res &= $this->checkVersions($manifest['php'], System::getPhpVersion(), 'Your PHP version ({version}) is not supported. Required version: {requiredVersion}.');
+        }
+
+        //check database version
+        if (isset($manifest['database'])) {
+            $databaseHelper = $this->getDatabaseHelper();
+            $databaseType = $databaseHelper->getDatabaseType();
+            $databaseTypeLc = strtolower($databaseType);
+
+            if (isset($manifest['database'][$databaseTypeLc])) {
+                $databaseVersion = $databaseHelper->getDatabaseVersion();
+                if ($databaseVersion) {
+                    $res &= $this->checkVersions($manifest['database'][$databaseTypeLc], $databaseVersion, 'Your '. $databaseType .' version ({version}) is not supported. Required version: {requiredVersion}.');
+                }
+            }
         }
 
         //check acceptableVersions
         if (isset($manifest['acceptableVersions'])) {
-            $res &= $this->checkVersions($manifest['acceptableVersions'], $this->getConfig()->get('version'), 'Your EspoCRM version doesn\'t match for this installation package.');
+            $res &= $this->checkVersions($manifest['acceptableVersions'], $this->getConfig()->get('version'), 'Your EspoCRM version ({version}) is not supported. Required version: {requiredVersion}.');
         }
 
         //check dependencies
@@ -235,7 +265,7 @@ abstract class Base
             $isInRange = false;
             try {
                 $isInRange = Semver::satisfies($currentVersion, $version);
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 $GLOBALS['log']->error('SemVer: Version identification error: '.$e->getMessage().'.');
             }
 
@@ -243,6 +273,9 @@ abstract class Base
                 return true;
             }
         }
+
+        $errorMessage = preg_replace('/\{version\}/', $currentVersion, $errorMessage);
+        $errorMessage = preg_replace('/\{requiredVersion\}/', $version, $errorMessage);
 
         $this->throwErrorAndRemovePackage($errorMessage);
     }
@@ -266,17 +299,47 @@ abstract class Base
         return true;
     }
 
+    protected function getPackageType()
+    {
+        $manifest = $this->getManifest();
+
+        if (isset($manifest['type'])) {
+            return strtolower($manifest['type']);
+        }
+
+        return $this->defaultPackageType;
+    }
+
     protected function checkDependencies($dependencyList)
     {
         return true;
     }
 
     /**
-     * Run scripts by type
+     * Run a script by a type
      * @param  string $type Ex. "before", "after"
      * @return void
      */
     protected function runScript($type)
+    {
+        $beforeInstallScript = $this->getScriptPath($type);
+
+        if ($beforeInstallScript) {
+            $scriptNames = $this->getParams('scriptNames');
+            $scriptName = $scriptNames[$type];
+
+            require_once($beforeInstallScript);
+            $script = new $scriptName();
+
+            try {
+                $script->run($this->getContainer(), $this->scriptParams);
+            } catch (\Throwable $e) {
+                $this->throwErrorAndRemovePackage($e->getMessage());
+            }
+        }
+    }
+
+    protected function getScriptPath($type)
     {
         $packagePath = $this->getPackagePath();
         $scriptNames = $this->getParams('scriptNames');
@@ -287,16 +350,8 @@ abstract class Base
         }
 
         $beforeInstallScript = Util::concatPath( array($packagePath, self::SCRIPTS, $scriptName) ) . '.php';
-
         if (file_exists($beforeInstallScript)) {
-            require_once($beforeInstallScript);
-            $script = new $scriptName();
-
-            try {
-                $script->run($this->getContainer(), $this->scriptParams);
-            } catch (\Exception $e) {
-                $this->throwErrorAndRemovePackage($e->getMessage());
-            }
+            return $beforeInstallScript;
         }
     }
 
@@ -459,7 +514,7 @@ abstract class Base
     {
         try {
             $res = $this->getFileManager()->copy($sourcePath, $destPath, $recursively, $fileList, $copyOnlyFiles);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->throwErrorAndRemovePackage($e->getMessage());
         }
 
@@ -475,6 +530,28 @@ abstract class Base
      */
     protected function copyFiles($type = null, $dest = '')
     {
+        $filesPath = $this->getCopyFilesPath($type);
+
+        if ($filesPath) {
+            switch ($type) {
+                case 'vendor':
+                    $dest = $this->vendorDirName;
+                    break;
+            }
+
+            return $this->copy($filesPath, $dest, true);
+        }
+
+        return true;
+    }
+
+    /**
+     * Get needed file list based on type. E.g. file list for "beforeCopy" action
+     * @param  string $type
+     * @return boolean
+     */
+    protected function getCopyFilesPath($type = null)
+    {
         switch ($type) {
             case 'before':
             case 'after':
@@ -486,7 +563,6 @@ abstract class Base
                 $dirNames = $this->getParams('customDirNames');
                 if (isset($dirNames['vendor'])) {
                     $dirPath = $dirNames['vendor'];
-                    $dest = $this->vendorDirName;
                 }
                 break;
 
@@ -500,11 +576,9 @@ abstract class Base
             $filesPath = Util::concatPath($packagePath, $dirPath);
 
             if (file_exists($filesPath)) {
-                return $this->copy($filesPath, $dest, true);
+                return $filesPath;
             }
         }
-
-        return true;
     }
 
     protected function getVendorFileList($type = 'copy')
@@ -613,12 +687,12 @@ abstract class Base
         $packageArchivePath = $this->getPackagePath(true);
 
         if (!file_exists($packageArchivePath)) {
-            throw new Error('Package Archive doesn\'t exist.');
+            $this->throwErrorAndRemovePackage('Package Archive doesn\'t exist.', false, false);
         }
 
         $res = $this->getZipUtil()->unzip($packageArchivePath, $packagePath);
         if ($res === false) {
-            throw new Error('Unnable to unzip the file - '.$packagePath.'.');
+            $this->throwErrorAndRemovePackage('Unnable to unzip the file - '.$packagePath.'.', false, false);
         }
     }
 
@@ -652,8 +726,8 @@ abstract class Base
     {
         try {
             return $this->getContainer()->get('dataManager')->rebuild();
-        } catch (\Exception $e) {
-            $GLOBALS['log']->error('Database rebuild failure, details: '.$e->getMessage().'.');
+        } catch (\Throwable $e) {
+            $GLOBALS['log']->error('Database rebuild failure, details: '. $e->getMessage() .'.');
         }
 
         return false;
@@ -706,12 +780,15 @@ abstract class Base
 
     protected function checkIsWritable()
     {
-        $fullFileList = array_merge($this->getDeleteFileList(), $this->getCopyFileList());
+        $backupPath = $this->getPath('backupPath');
+        $fullFileList = array_merge([$backupPath], $this->getDeleteFileList(), $this->getCopyFileList());
 
         $result = $this->getFileManager()->isWritableList($fullFileList);
         if (!$result) {
             $permissionDeniedList = $this->getFileManager()->getLastPermissionDeniedList();
-            throw new Error("Permission denied for <br>". implode(", <br>", $permissionDeniedList));
+
+            $delimiter = $this->isCli() ? "\n" : "<br>";
+            $this->throwErrorAndRemovePackage("Permission denied: " . $delimiter . implode($delimiter, $permissionDeniedList), false, false);
         }
     }
 
@@ -749,6 +826,12 @@ abstract class Base
     protected function enableMaintenanceMode()
     {
         $config = $this->getConfig();
+        $configParamName = $this->getTemporaryConfigParamName();
+        $parentConfigParamName = $this->getTemporaryConfigParamName(true);
+
+        if ($config->has($configParamName) || ($parentConfigParamName && $config->has($parentConfigParamName))) {
+            return;
+        }
 
         $actualParams = [
             'maintenanceMode' => $config->get('maintenanceMode'),
@@ -756,7 +839,7 @@ abstract class Base
             'useCache' => $config->get('useCache'),
         ];
 
-        $this->setParam('beforeMaintenanceModeParams', $actualParams);
+        $config->set($configParamName, $actualParams);
 
         $save = false;
 
@@ -780,22 +863,61 @@ abstract class Base
         }
     }
 
-    protected function disableMaintenanceMode()
+    protected function disableMaintenanceMode($force = false)
     {
         $config = $this->getConfig();
-        $beforeMaintenanceModeParams = $this->getParams('beforeMaintenanceModeParams', []);
+
+        $configParamList = [
+            $this->getTemporaryConfigParamName()
+        ];
+
+        if ($force && $this->getTemporaryConfigParamName(true)) {
+            $configParamList[] = $this->getTemporaryConfigParamName(true);
+        }
 
         $save = false;
 
-        foreach ($beforeMaintenanceModeParams as $paramName => $paramValue) {
-            if ($config->get($paramName) != $paramValue) {
-                $config->set($paramName, $paramValue);
-                $save = true;
+        foreach ($configParamList as $configParamName) {
+
+            if (!$config->has($configParamName)) {
+                continue;
             }
+
+            foreach ($config->get($configParamName, []) as $paramName => $paramValue) {
+                if ($config->get($paramName) != $paramValue) {
+                    $config->set($paramName, $paramValue);
+                }
+            }
+
+            $config->remove($configParamName);
+            $save = true;
         }
 
         if ($save) {
             $config->save();
         }
+    }
+
+    protected function getTemporaryConfigParamName($isParentProcess = false)
+    {
+        $processId = $this->getProcessId();
+
+        if ($isParentProcess) {
+            $processId = $this->getParentProcessId();
+            if (!$processId) {
+                return;
+            }
+        }
+
+        return 'temporaryUpgradeParams' . $processId;
+    }
+
+    protected function isCli()
+    {
+        if (substr(php_sapi_name(), 0, 3) == 'cli') {
+            return true;
+        }
+
+        return false;
     }
 }

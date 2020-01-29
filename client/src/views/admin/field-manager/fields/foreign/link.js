@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@
  * these Appropriate Legal Notices must retain the display of the "EspoCRM" word.
  ************************************************************************/
 
-Espo.define('views/admin/field-manager/fields/foreign/link', 'views/fields/enum', function (Dep) {
+define('views/admin/field-manager/fields/foreign/link', 'views/fields/enum', function (Dep) {
 
     return Dep.extend({
 
@@ -41,20 +41,25 @@ Espo.define('views/admin/field-manager/fields/foreign/link', 'views/fields/enum'
             var links = this.getMetadata().get(['entityDefs', this.options.scope, 'links']) || {};
 
             this.params.options = Object.keys(Espo.Utils.clone(links)).filter(function (item) {
-                if (links[item].type !== 'belongsTo') return;
+                if (links[item].type !== 'belongsTo' && links[item].type !== 'hasOne') return;
                 if (links[item].noJoin) return;
 
                 return true;
             }, this);
 
+            var scope = this.options.scope;
+
             this.translatedOptions = {};
             this.params.options.forEach(function (item) {
-                this.translatedOptions[item] = this.translate(item, 'links', this.options.scope);
+                this.translatedOptions[item] = this.translate(item, 'links', scope);
             }, this);
 
-            this.params.options.unshift('');
-        }
+            this.params.options = this.params.options.sort(function (v1, v2) {
+                return this.translate(v1, 'links', scope).localeCompare(this.translate(v2, 'links', scope));
+            }.bind(this));
 
+            this.params.options.unshift('');
+        },
     });
 
 });

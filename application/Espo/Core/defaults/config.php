@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -57,40 +57,11 @@ return [
     'outboundEmailFromName' => 'EspoCRM',
     'outboundEmailFromAddress' => '',
     'smtpServer' => '',
-    'smtpPort' => 25,
+    'smtpPort' => 587,
     'smtpAuth' => true,
-    'smtpSecurity' => '',
+    'smtpSecurity' => 'TLS',
     'smtpUsername' => '',
     'smtpPassword' => '',
-    'languageList' => [
-        'en_GB',
-        'en_US',
-        'es_MX',
-        'cs_CZ',
-        'da_DK',
-        'de_DE',
-        'es_ES',
-        'hr_HR',
-        'hu_HU',
-        'fa_IR',
-        'fr_FR',
-        'id_ID',
-        'it_IT',
-        'lt_LT',
-        'lv_LV',
-        'nb_NO',
-        'nl_NL',
-        'tr_TR',
-        'sk_SK',
-        'sr_RS',
-        'ro_RO',
-        'ru_RU',
-        'pl_PL',
-        'pt_BR',
-        'uk_UA',
-        'vi_VN',
-        'zh_CN'
-    ],
     'language' => 'en_US',
     'logger' => [
         'path' => 'data/logs/espo.log',
@@ -121,13 +92,13 @@ return [
     'emailNotificationsDelay' => 30,
     'emailMessageMaxSize' => 10,
     'notificationsCheckInterval' => 10,
-    'disabledCountQueryEntityList' => ['Email'],
     'maxEmailAccountCount' => 2,
     'followCreatedEntities' => false,
     'b2cMode' => false,
     'restrictedMode' => false,
     'theme' => 'HazyblueVertical',
     'massEmailMaxPerHourCount' => 100,
+    'massEmailVerp' => false,
     'personalEmailMaxPortionSize' => 50,
     'inboundEmailMaxPortionSize' => 50,
     'authTokenLifetime' => 0,
@@ -166,7 +137,7 @@ return [
     'cleanupAuthTokenPeriod' => '1 month',
     'currencyFormat' => 2,
     'currencyDecimalPlaces' => 2,
-    'aclStrictMode' => false,
+    'aclStrictMode' => true,
     'aclAllowDeleteCreated' => false,
     'aclAllowDeleteCreatedThresholdPeriod' => '24 hours',
     'inlineAttachmentUploadMaxSize' => 20,
@@ -180,5 +151,7 @@ return [
     'emailForceUseExternalClient' => false,
     'useWebSocket' => false,
     'auth2FAMethodList' => ['Totp'],
+    'personNameFormat' => 'firstLast',
+    'newNotificationCountInTitle' => false,
     'isInstalled' => false,
 ];

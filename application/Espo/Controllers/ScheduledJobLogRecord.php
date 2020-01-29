@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -25,9 +25,11 @@
  *
  * In accordance with Section 7(b) of the GNU General Public License version 3,
  * these Appropriate Legal Notices must retain the display of the "EspoCRM" word.
- ************************************************************************/ 
+ ************************************************************************/
 
 namespace Espo\Controllers;
+
+use Espo\Core\Exceptions\Forbidden;
 
 class ScheduledJobLogRecord extends \Espo\Core\Controllers\Record
 {
@@ -38,4 +40,3 @@ class ScheduledJobLogRecord extends \Espo\Core\Controllers\Record
         }
     }
 }
-

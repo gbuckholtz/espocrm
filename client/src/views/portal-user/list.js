@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -26,9 +26,13 @@
  * these Appropriate Legal Notices must retain the display of the "EspoCRM" word.
  ************************************************************************/
 
-Espo.define('views/portal-user/list', 'views/list', function (Dep) {
+define('views/portal-user/list', 'views/list', function (Dep) {
 
     return Dep.extend({
+
+        defaultOrderBy: 'createdAt',
+
+        defaultOrder: 'desc',
 
         setup: function () {
             Dep.prototype.setup.call(this);
@@ -112,4 +116,3 @@ Espo.define('views/portal-user/list', 'views/list', function (Dep) {
 
     });
 });
-

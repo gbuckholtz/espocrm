@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -33,6 +33,8 @@ use \Espo\Core\Exceptions\Forbidden;
 use \Espo\Core\Exceptions\NotFound;
 
 use Espo\ORM\Entity;
+
+use Espo\Core\Utils\Util;
 
 class EmailNotification extends \Espo\Core\Services\Base
 {
@@ -120,6 +122,9 @@ class EmailNotification extends \Espo\Core\Services\Base
         if (!$preferences) return;
         if (!$preferences->get('receiveAssignmentEmailNotifications')) return;
 
+        $ignoreList = $preferences->get('assignmentEmailNotificationsIgnoreEntityTypeList') ?? [];
+        if (in_array($entityType, $ignoreList)) return;
+
         $assignerUser = $this->getEntityManager()->getEntity('User', $assignerUserId);
         $entity = $this->getEntityManager()->getEntity($entityType, $entityId);
         if (!$entity) return true;
@@ -148,7 +153,7 @@ class EmailNotification extends \Espo\Core\Services\Base
                 'recordUrl' => $recordUrl,
                 'entityType' => $this->getLanguage()->translate($entity->getEntityType(), 'scopeNames')
             ];
-            $data['entityTypeLowerFirst'] = lcfirst($data['entityType']);
+            $data['entityTypeLowerFirst'] = Util::mbLowerCaseFirst($data['entityType']);
 
             $subject = $this->getHtmlizer()->render($entity, $subjectTpl, 'assignment-email-subject-' . $entity->getEntityType(), $data, true);
             $body = $this->getHtmlizer()->render($entity, $bodyTpl, 'assignment-email-body-' . $entity->getEntityType(), $data, true);
@@ -440,7 +445,7 @@ class EmailNotification extends \Espo\Core\Services\Base
             $data['name'] = $data['parentName'];
 
             $data['entityType'] = $this->getLanguage()->translate($data['parentType'], 'scopeNames');
-            $data['entityTypeLowerFirst'] = lcfirst($data['entityType']);
+            $data['entityTypeLowerFirst'] = Util::mbLowerCaseFirst($data['entityType']);
 
             $subjectTpl = $this->getTemplateFileManager()->getTemplate('notePost', 'subject', $parentType);
             $bodyTpl = $this->getTemplateFileManager()->getTemplate('notePost', 'body', $parentType);
@@ -560,7 +565,7 @@ class EmailNotification extends \Espo\Core\Services\Base
         $data['name'] = $data['parentName'];
 
         $data['entityType'] = $this->getLanguage()->translate($data['parentType'], 'scopeNames');
-        $data['entityTypeLowerFirst'] = lcfirst($data['entityType']);
+        $data['entityTypeLowerFirst'] = Util::mbLowerCaseFirst($data['entityType']);
 
         $noteData = $note->get('data');
         if (empty($noteData)) return;
@@ -570,7 +575,7 @@ class EmailNotification extends \Espo\Core\Services\Base
         $data['field'] = $noteData->field;
         $data['valueTranslated'] = $this->getLanguage()->translateOption($data['value'], $data['field'], $parentType);
         $data['fieldTranslated'] = $this->getLanguage()->translate($data['field'], 'fields', $parentType);
-        $data['fieldTranslatedLowerCase'] = lcfirst($data['fieldTranslated']);
+        $data['fieldTranslatedLowerCase'] = Util::mbLowerCaseFirst($data['fieldTranslated']);
 
         $data['userName'] = $note->get('createdByName');
 
@@ -662,7 +667,7 @@ class EmailNotification extends \Espo\Core\Services\Base
         $data['name'] = $data['parentName'];
 
         $data['entityType'] = $this->getLanguage()->translate($data['parentType'], 'scopeNames');
-        $data['entityTypeLowerFirst'] = lcfirst($data['entityType']);
+        $data['entityTypeLowerFirst'] = Util::mbLowerCaseFirst($data['entityType']);
 
         $subjectTpl = $this->getTemplateFileManager()->getTemplate('noteEmailRecieved', 'subject', $parentType);
         $bodyTpl = $this->getTemplateFileManager()->getTemplate('noteEmailRecieved', 'body', $parentType);

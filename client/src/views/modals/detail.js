@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@
  * these Appropriate Legal Notices must retain the display of the "EspoCRM" word.
  ************************************************************************/
 
-Espo.define('views/modals/detail', 'views/modal', function (Dep) {
+define('views/modals/detail', 'views/modal', function (Dep) {
 
     return Dep.extend({
 
@@ -42,8 +42,6 @@ Espo.define('views/modals/detail', 'views/modal', function (Dep) {
 
         removeDisabled: true,
 
-        columnCount: 2,
-
         backdrop: true,
 
         fitHeight: true,
@@ -54,9 +52,15 @@ Espo.define('views/modals/detail', 'views/modal', function (Dep) {
 
         bottomDisabled: false,
 
-        setup: function () {
+        fixedHeaderHeight: true,
 
+        flexibleHeaderFontSize: true,
+
+        setup: function () {
             var self = this;
+
+            this.scope = this.scope || this.options.scope;
+            this.id = this.options.id;
 
             this.buttonList = [];
 
@@ -67,6 +71,9 @@ Espo.define('views/modals/detail', 'views/modal', function (Dep) {
             if ('removeDisabled' in this.options) {
                 this.removeDisabled = this.options.removeDisabled;
             }
+
+            this.editDisabled = this.getMetadata().get(['clientDefs', this.scope, 'editDisabled']) || this.editDisabled;
+            this.removeDisabled = this.getMetadata().get(['clientDefs', this.scope, 'removeDisabled']) || this.removeDisabled;
 
             this.fullFormDisabled = this.options.fullFormDisabled || this.fullFormDisabled;
 
@@ -113,9 +120,6 @@ Espo.define('views/modals/detail', 'views/modal', function (Dep) {
             } else {
                 this.navigateButtonsDisabled = true;
             }
-
-            this.scope = this.scope || this.options.scope;
-            this.id = this.options.id;
 
             this.waitForView('record');
 
@@ -221,10 +225,10 @@ Espo.define('views/modals/detail', 'views/modal', function (Dep) {
             this.headerHtml += this.getLanguage().translate(scope, 'scopeNames');
 
             if (model.get('name')) {
-                this.headerHtml += ' &raquo; ' + Handlebars.Utils.escapeExpression(model.get('name'));
+                this.headerHtml += ' <span class="chevron-right"></span> ' + Handlebars.Utils.escapeExpression(model.get('name'));
             }
             if (!this.fullFormDisabled) {
-                this.headerHtml = '<a href="#' + scope + '/view/' + this.id+'" class="action" title="'+this.translate('Full Form')+'" data-action="fullForm">' + this.headerHtml + '</a>';
+                this.headerHtml = '<a href="#' + scope + '/view/' + this.id+'" class="action font-size-flexible" title="'+this.translate('Full Form')+'" data-action="fullForm">' + this.headerHtml + '</a>';
             }
 
             this.headerHtml = iconHtml + this.headerHtml;
@@ -272,7 +276,6 @@ Espo.define('views/modals/detail', 'views/modal', function (Dep) {
                 el: this.containerSelector + ' .record-container',
                 type: 'detailSmall',
                 layoutName: this.layoutName || 'detailSmall',
-                columnCount: this.columnCount,
                 buttonsDisabled: true,
                 inlineEditDisabled: true,
                 sideDisabled: this.sideDisabled,
@@ -393,14 +396,13 @@ Espo.define('views/modals/detail', 'views/modal', function (Dep) {
             } else {
                 var initialCount = collection.length;
 
-                this.listenToOnce(collection, 'sync', function () {
-                    var model = collection.at(indexOfRecord);
-                    this.switchToModelByIndex(indexOfRecord);
-                }, this);
                 collection.fetch({
                     more: true,
                     remove: false,
-                });
+                }).then(function () {
+                    var model = collection.at(indexOfRecord);
+                    this.switchToModelByIndex(indexOfRecord);
+                }.bind(this));
             }
         },
 

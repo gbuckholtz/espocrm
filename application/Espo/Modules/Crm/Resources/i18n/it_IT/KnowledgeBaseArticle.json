@@ -14,7 +14,7 @@
     "type": "Tipo",
     "attachments": "Allegato",
     "publishDate": "Data di pubblicazione",
-    "expirationDate": "Data di Scadenza",
+    "expirationDate": "Data di scadenza",
     "description": "Descrizione",
     "body": "Corpo",
     "categories": "Categorie",
@@ -22,14 +22,14 @@
     "portals": "Portali"
   },
   "links": {
-    "cases": "Casi",
+    "cases": "Tickets",
     "opportunities": "Opportunita'",
     "categories": "Categorie",
     "portals": "Portali"
   },
   "options": {
     "status": {
-      "In Review": "In Revisione",
+      "In Review": "In revisione",
       "Draft": "Bozza",
       "Archived": "Archiviato",
       "Published": "Pubblicato"

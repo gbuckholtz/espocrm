@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -128,8 +128,8 @@ Espo.define('views/note/fields/post', ['views/fields/text', 'lib!Textcomplete'],
                         });
                     },
                     template: function (mention) {
-                        return mention.name + ' <span class="text-muted">@' + mention.userName + '</span>';
-                    },
+                        return this.getHelper().escapeString(mention.name) + ' <span class="text-muted">@' + this.getHelper().escapeString(mention.userName) + '</span>';
+                    }.bind(this),
                     replace: function (o) {
                         return '$1@' + o.userName + '';
                     }

@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@
  * these Appropriate Legal Notices must retain the display of the "EspoCRM" word.
  ************************************************************************/
 
-Espo.define('views/portal-role/record/table', 'views/role/record/table', function (Dep) {
+define('views/portal-role/record/table', 'views/role/record/table', function (Dep) {
 
     return Dep.extend({
 
@@ -45,6 +45,8 @@ Espo.define('views/portal-role/record/table', 'views/role/record/table', functio
         levelList: ['all', 'account', 'contact', 'own', 'no'],
 
         type: 'aclPortal',
+
+        lowestLevelByDefault: true,
 
         setupScopeList: function () {
             this.aclTypeMap = {};
@@ -69,5 +71,3 @@ Espo.define('views/portal-role/record/table', 'views/role/record/table', functio
 
     });
 });
-
-

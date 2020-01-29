@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -28,10 +28,13 @@
 
 define('acl', [], function () {
 
-    var Acl = function (user, scope, aclAllowDeleteCreated) {
+    var Acl = function (user, scope, params) {
         this.user = user || null;
         this.scope = scope;
-        this.aclAllowDeleteCreated = aclAllowDeleteCreated;
+        params = params || {};
+        this.aclAllowDeleteCreated = params.aclAllowDeleteCreated;
+        this.teamsFieldIsForbidden = params.teamsFieldIsForbidden;
+        this.forbiddenFieldList = params.forbiddenFieldList;
     }
 
     _.extend(Acl.prototype, {
@@ -62,13 +65,13 @@ define('acl', [], function () {
                 return true;
             }
             if (data === null) {
-                return true;
+                return false;
             }
 
             action = action || null;
 
             if (action === null) {
-                return true
+                return true;
             }
             if (!(action in data)) {
                 return false;
@@ -130,8 +133,9 @@ define('acl', [], function () {
             }
             var entityAccessData = {
                 isOwner: this.checkIsOwner(model),
-                inTeam: this.checkInTeam(model)
+                inTeam: this.checkInTeam(model),
             };
+
             return this.checkScope(data, action, precise, entityAccessData);
         },
 
@@ -209,23 +213,25 @@ define('acl', [], function () {
 
         checkInTeam: function (model) {
             var userTeamIdList = this.getUser().getTeamIdList();
-            if (model.name == 'Team') {
-                return (userTeamIdList.indexOf(model.id) != -1);
-            } else {
-                if (!model.has('teamsIds')) {
-                    return null;
+
+            if (!model.has('teamsIds')) {
+                if (this.teamsFieldIsForbidden) {
+                    return true;
                 }
-                var teamIdList = model.getTeamIdList();
-                var inTeam = false;
-                userTeamIdList.forEach(function (id) {
-                    if (~teamIdList.indexOf(id)) {
-                        inTeam = true;
-                    }
-                });
-                return inTeam;
+                return null;
             }
-            return false;
-        }
+
+            var teamIdList = model.getTeamIdList();
+            var inTeam = false;
+
+            userTeamIdList.forEach(function (id) {
+                if (~teamIdList.indexOf(id)) {
+                    inTeam = true;
+                }
+            });
+            return inTeam;
+        },
+
     });
 
     Acl.extend = Backbone.Router.extend;

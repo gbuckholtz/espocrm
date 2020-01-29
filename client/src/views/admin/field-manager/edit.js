@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@
  * these Appropriate Legal Notices must retain the display of the "EspoCRM" word.
  ************************************************************************/
 
-Espo.define('views/admin/field-manager/edit', ['view', 'model'], function (Dep, Model) {
+define('views/admin/field-manager/edit', ['view', 'model'], function (Dep, Model) {
 
     return Dep.extend({
 
@@ -110,6 +110,8 @@ Espo.define('views/admin/field-manager/edit', ['view', 'model'], function (Dep, 
                     this.hasPersonalData = true;
                 }
 
+                this.hasInlineEditDisabled = this.type !== 'foreign';
+
                 Promise.race([
                     new Promise(function (resolve) {
                         if (this.isNew) {
@@ -157,10 +159,12 @@ Espo.define('views/admin/field-manager/edit', ['view', 'model'], function (Dep, 
                         });
                     }
 
-                    this.paramList.push({
-                        name: 'inlineEditDisabled',
-                        type: 'bool'
-                    });
+                    if (this.hasInlineEditDisabled) {
+                        this.paramList.push({
+                            name: 'inlineEditDisabled',
+                            type: 'bool'
+                        });
+                    }
 
                     this.paramList.forEach(function (o) {
                         this.model.defs.fields[o.name] = o;
@@ -179,20 +183,17 @@ Espo.define('views/admin/field-manager/edit', ['view', 'model'], function (Dep, 
                         trim: true
                     });
 
-                    this.createFieldView('text', 'tooltipText', null, {
-                        trim: true,
-                        rows: 1
-                    });
-
                     if (this.hasPersonalData) {
                         this.createFieldView('bool', 'isPersonalData', null, {});
                     }
 
-                    this.createFieldView('bool', 'inlineEditDisabled', null, {});
+                    if (this.hasInlineEditDisabled) {
+                        this.createFieldView('bool', 'inlineEditDisabled', null, {});
+                    }
 
                     this.createFieldView('text', 'tooltipText', null, {
                         trim: true,
-                        rows: 1
+                        rowsMin: 1,
                     });
 
                     this.hasDynamicLogicPanel = false;
@@ -239,7 +240,7 @@ Espo.define('views/admin/field-manager/edit', ['view', 'model'], function (Dep, 
                         }
 
                         if (
-                            ~['enum', 'array', 'multiEnum'].indexOf(this.type)
+                            this.getMetadata().get(['fields', this.type, 'dynamicLogicOptions'])
                             &&
                             !this.getMetadata().get(['entityDefs', this.scope, 'fields', this.field, 'dynamicLogicOptionsDisabled'])
                         ) {
@@ -261,7 +262,12 @@ Espo.define('views/admin/field-manager/edit', ['view', 'model'], function (Dep, 
                         var options = {};
                         if (o.tooltip ||  ~this.paramWithTooltipList.indexOf(o.name)) {
                             options.tooltip = true;
-                            options.tooltipText = this.translate(o.name, 'tooltips', 'FieldManager');
+
+                            var tooltip = o.name;
+                            if (typeof o.tooltip == 'string') {
+                                tooltip = o.tooltip;
+                            }
+                            options.tooltipText = this.translate(tooltip, 'tooltips', 'FieldManager');
                         }
                         this.createFieldView(o.type, o.name, null, o, options);
                     }, this);
@@ -424,8 +430,9 @@ Espo.define('views/admin/field-manager/edit', ['view', 'model'], function (Dep, 
                     }.bind(this)),
                     new Promise(function (resolve) {
                         this.getLanguage().load(function () {
+                            this.getLanguage().storeToCache();
                             resolve();
-                        }, true);
+                        }.bind(this), true);
                     }.bind(this))
                 ]).then(function () {
                     this.trigger('after:save');
@@ -501,6 +508,7 @@ Espo.define('views/admin/field-manager/edit', ['view', 'model'], function (Dep, 
                         }.bind(this)),
                         new Promise(function (resolve) {
                             this.getLanguage().load(function () {
+                                this.getLanguage().storeToCache();
                                 resolve();
                             }.bind(this), true);
                         }.bind(this))
@@ -513,8 +521,7 @@ Espo.define('views/admin/field-manager/edit', ['view', 'model'], function (Dep, 
                 }.bind(this));
 
             }, this);
-        }
+        },
 
     });
-
 });

@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -26,12 +26,23 @@
  * these Appropriate Legal Notices must retain the display of the "EspoCRM" word.
  ************************************************************************/
 
-Espo.define('crm:views/mass-email/fields/smtp-account', 'views/fields/enum', function (Dep) {
+define('crm:views/mass-email/fields/smtp-account', 'views/fields/enum', function (Dep) {
 
     return Dep.extend({
 
+        dataUrl: 'MassEmail/action/smtpAccountDataList',
+
         getAttributeList: function () {
             return [this.name, 'inboundEmailId'];
+        },
+
+        data: function () {
+            var data = Dep.prototype.data.call(this);
+
+            data.valueIsSet = true;
+            data.isNotEmpty = true;
+
+            return data;
         },
 
         setupOptions: function () {
@@ -81,7 +92,7 @@ Espo.define('crm:views/mass-email/fields/smtp-account', 'views/fields/enum', fun
             Dep.prototype.setup.call(this);
 
             if (this.getAcl().checkScope('MassEmail', 'create') || this.getAcl().checkScope('MassEmail', 'edit')) {
-                this.ajaxGetRequest('MassEmail/action/smtpAccountDataList').then(function (dataList) {
+                this.ajaxGetRequest(this.dataUrl).then(function (dataList) {
                     if (!dataList.length) return;
                     this.loadedOptionList = [];
                     this.loadedOptionTranslations = {};
@@ -116,7 +127,7 @@ Espo.define('crm:views/mass-email/fields/smtp-account', 'views/fields/enum', fun
             }
 
             return data;
-        }
+        },
 
     });
 });

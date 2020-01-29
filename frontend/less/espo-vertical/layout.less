@@ -1,5 +1,5 @@
 #navbar .navbar {
-    .navbar-collapse {
+    .navbar-right-container {
         input.global-search-input {
             width: 260px;
             padding-bottom: 4px;
@@ -9,7 +9,7 @@
 }
 
 @media (min-width: @grid-float-breakpoint) {
-    #header .navbar-collapse {
+    #header .navbar-body {
         .navbar & {
             padding-left: 0;
             padding-right: 0;
@@ -41,7 +41,7 @@
 
         #navbar .navbar {
 
-            .navbar-collapse {
+            .navbar-body {
                 padding-left: 0;
                 padding-right: 0;
             }
@@ -233,7 +233,7 @@
 
             ul.tabs {
                 > li > a > span.full-label {
-                    display: inline;
+                    display: inline-block;
                 }
             }
 
@@ -468,10 +468,6 @@ body {
         height: 100%;
     }
 
-    body > footer {
-        margin-top: -26x;
-    }
-
     body > .content {
         height: auto;
         min-height: 100%;
@@ -534,15 +530,21 @@ body.minimized .list-buttons-container .sticked-bar {
     }
 
     #navbar .navbar {
-        input.global-search-input {
-            width: 100%;
+        .navbar-right-container {
+            input.global-search-input {
+                width: 100%;
+            }
         }
+    }
+
+    body > .content {
+        padding-bottom: 20px;
     }
 }
 
 
-#content #main > .list-container > .list {
-    @media screen and (min-width: (@container-max-width + @navbar-width)) {
+@media screen and (min-width: (@container-max-width + @navbar-width)) {
+    #content #main > .list-container > .list {
         margin-left: 0;
         margin-right: 0;
 
@@ -555,20 +557,40 @@ body.minimized .list-buttons-container .sticked-bar {
             padding-right: @panel-padding;
         }
     }
+
+    #content {
+        .list-categories-column + .list-main-column .list-container,
+        .folders-container + .list-container {
+            .list {
+                margin-right: 0
+            }
+        }
+    }
 }
 
-body.minimized #content #main > .list-container > .list {
-    @media screen and (min-width: (@container-max-width + @navbar-minimized-width)) {
-        margin-left: 0;
-        margin-right: 0;
+@media screen and (min-width: (@container-max-width + @navbar-minimized-width)) {
+    body.minimized {
+        #content #main > .list-container > .list {
 
-        > table td:first-child,
-        > table th:first-child {
-            padding-left: @panel-padding;
+            margin-left: 0;
+            margin-right: 0;
+
+            > table td:first-child,
+            > table th:first-child {
+                padding-left: @panel-padding;
+            }
+            > table td:last-child,
+            > table th:last-child {
+                padding-right: @panel-padding;
+            }
         }
-        > table td:last-child,
-        > table th:last-child {
-            padding-right: @panel-padding;
+
+        .list-categories-column + .list-main-column .list-container,
+        .folders-container + .list-container {
+            .list {
+                margin-right: 0
+            }
         }
+
     }
 }

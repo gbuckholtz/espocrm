@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -29,11 +29,11 @@
 
 namespace Espo\ORM;
 
-class SthCollection implements \IteratorAggregate
+class SthCollection implements \IteratorAggregate, ICollection
 {
-    private $entityManager = null;
+    protected $entityManager = null;
 
-    private $entityType;
+    protected $entityType;
 
     protected $selectParams = null;
 
@@ -41,11 +41,28 @@ class SthCollection implements \IteratorAggregate
 
     private $sql = null;
 
+    protected $isFetched = false;
+
     public function __construct(string $entityType, EntityManager $entityManager = null, array $selectParams = [])
     {
         $this->selectParams = $selectParams;
         $this->entityType = $entityType;
         $this->entityManager = $entityManager;
+    }
+
+    protected function getQuery()
+    {
+        return $this->entityManager->getQuery();
+    }
+
+    protected function getPdo()
+    {
+        return $this->entityManager->getPdo();
+    }
+
+    protected function getEntityFactory()
+    {
+        return $this->entityManager->getEntityFactory();
     }
 
     public function setSelectParams(array $selectParams)
@@ -63,9 +80,9 @@ class SthCollection implements \IteratorAggregate
         if ($this->sql) {
             $sql = $this->sql;
         } else {
-            $sql = $this->entityManager->getQuery()->createSelectQuery($this->entityType, $this->selectParams);
+            $sql = $this->getQuery()->createSelectQuery($this->entityType, $this->selectParams);
         }
-        $sth = $this->entityManager->getPdo()->prepare($sql);
+        $sth = $this->getPdo()->prepare($sql);
         $sth->execute();
 
         $this->sth = $sth;
@@ -74,8 +91,11 @@ class SthCollection implements \IteratorAggregate
     public function getIterator()
     {
         return (function () {
+            if (isset($this->sth)) {
+                $this->sth->execute();
+            }
             while ($row = $this->fetchRow()) {
-                $entity = $this->entityManager->getEntityFactory()->create($this->entityType);
+                $entity = $this->getEntityFactory()->create($this->entityType);
                 $entity->set($row);
                 $entity->setAsFetched();
                 $this->prepareEntity($entity);
@@ -94,5 +114,45 @@ class SthCollection implements \IteratorAggregate
 
     protected function prepareEntity(Entity $entity)
     {
+    }
+
+    public function toArray($itemsAsObjects = false)
+    {
+        $arr = [];
+        foreach ($this as $entity) {
+            if ($itemsAsObjects) {
+                $item = $entity->getValueMap();
+            } else {
+                $item = $entity->toArray();
+            }
+            $arr[] = $item;
+        }
+        return $arr;
+    }
+
+    public function getValueMapList()
+    {
+        return $this->toArray(true);
+    }
+
+
+    public function setAsFetched()
+    {
+        $this->isFetched = true;
+    }
+
+    public function setAsNotFetched()
+    {
+        $this->isFetched = false;
+    }
+
+    public function isFetched()
+    {
+        return $this->isFetched;
+    }
+
+    public function getEntityType()
+    {
+        return $this->entityType;
     }
 }

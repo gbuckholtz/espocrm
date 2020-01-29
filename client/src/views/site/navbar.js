@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@
  * these Appropriate Legal Notices must retain the display of the "EspoCRM" word.
  ************************************************************************/
 
-Espo.define('views/site/navbar', 'view', function (Dep) {
+define('views/site/navbar', 'view', function (Dep) {
 
     return Dep.extend({
 
@@ -42,7 +42,7 @@ Espo.define('views/site/navbar', 'view', function (Dep) {
                 quickCreateList: this.quickCreateList,
                 enableQuickCreate: this.quickCreateList.length > 0,
                 userId: this.getUser().id,
-                logoSrc: this.getLogoSrc()
+                logoSrc: this.getLogoSrc(),
             };
         },
 
@@ -51,7 +51,7 @@ Espo.define('views/site/navbar', 'view', function (Dep) {
                 var $a = $(e.currentTarget);
                 var href = $a.attr('href');
                 if (href) {
-                    this.$el.find('.navbar-collapse.in').collapse('hide');
+                    this.xsCollapse();
                 }
             },
             'click a.nav-link': function (e) {
@@ -60,7 +60,7 @@ Espo.define('views/site/navbar', 'view', function (Dep) {
                 }
             },
             'click a.navbar-brand.nav-link': function (e) {
-                this.$el.find('.navbar-collapse.in').collapse('hide');
+                this.xsCollapse();
             },
             'click a[data-action="quick-create"]': function (e) {
                 e.preventDefault();
@@ -83,7 +83,34 @@ Espo.define('views/site/navbar', 'view', function (Dep) {
                     this[method](data, e);
                     e.preventDefault();
                 }
+            },
+            'click [data-action="toggleCollapsable"]': function () {
+                this.toggleCollapsable();
+            },
+        },
+
+        isCollapsableVisible: function () {
+            return this.$el.find('.navbar-body').hasClass('in');
+        },
+
+        toggleCollapsable: function () {
+            if (this.isCollapsableVisible()) {
+                this.hideCollapsable();
+            } else {
+                this.showCollapsable();
             }
+        },
+
+        hideCollapsable: function () {
+            this.$el.find('.navbar-body').removeClass('in');
+        },
+
+        showCollapsable: function () {
+            this.$el.find('.navbar-body').addClass('in');
+        },
+
+        xsCollapse: function () {
+            this.hideCollapsable();
         },
 
         isMinimized: function () {
@@ -179,14 +206,25 @@ Espo.define('views/site/navbar', 'view', function (Dep) {
             var scopes = this.getMetadata().get('scopes') || {};
 
             this.tabList = tabList.filter(function (scope) {
-                if ((scopes[scope] || {}).disabled) return;
-                if ((scopes[scope] || {}).acl) {
+                if (scope === '_delimiter_' || scope === 'Home') return true;
+                if (!scopes[scope]) return false;
+
+                var defs = scopes[scope] || {};
+
+                if (defs.disabled) return;
+
+                if (defs.acl) {
                     return this.getAcl().check(scope);
+                }
+                if (defs.tabAclPermission) {
+                    var level = this.getAcl().get(defs.tabAclPermission);
+                    return level && level !== 'no';
                 }
                 return true;
             }, this);
 
             this.quickCreateList = this.getQuickCreateList().filter(function (scope) {
+                if (!scopes[scope]) return false;
                 if ((scopes[scope] || {}).disabled) return;
                 if ((scopes[scope] || {}).acl) {
                     return this.getAcl().check(scope, 'create');

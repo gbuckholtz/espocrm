@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -77,20 +77,7 @@ class Auth
 
     protected function getAuthenticationImpl(string $method) : \Espo\Core\Utils\Authentication\Base
     {
-        $className = $this->getMetadata()->get([
-            'authenticationMethods', $method, 'implementationClassName'
-        ]);
-
-        if (!$className) {
-            $sanitizedName = preg_replace('/[^a-zA-Z0-9]+/', '', $method);
-
-            $className = "\\Espo\\Custom\\Core\\Utils\\Authentication\\" . $sanitizedName;
-            if (!class_exists($className)) {
-                $className = "\\Espo\\Core\\Utils\\Authentication\\" . $sanitizedName;
-            }
-        }
-
-        return new $className($this->getConfig(), $this->getEntityManager(), $this, $this->getContainer());
+        return $this->getContainer()->get('authenticationFactory')->create($method);
     }
 
     protected function get2FAImpl(string $method) : \Espo\Core\Utils\Authentication\TwoFA\Base
@@ -173,6 +160,14 @@ class Auth
             }
         }
 
+        $createTokenSecret = $this->request->headers->get('Espo-Authorization-Create-Token-Secret') === 'true';
+
+        if ($createTokenSecret) {
+            if ($this->getConfig()->get('authTokenSecretDisabled')) {
+                $createTokenSecret = false;
+            }
+        }
+
         if (!$isByTokenOnly) {
             $this->checkFailedAttemptsLimit($username);
         }
@@ -184,6 +179,15 @@ class Auth
             $authToken = $this->getEntityManager()->getRepository('AuthToken')->where([
                 'token' => $password
             ])->findOne();
+
+            if ($authToken) {
+                if ($authToken->get('secret')) {
+                    $sentSecret = $_COOKIE['auth-token-secret'] ?? null;
+                    if ($sentSecret !== $authToken->get('secret')) {
+                        $authToken = null;
+                    }
+                }
+            }
         }
 
         if ($authToken) {
@@ -312,6 +316,13 @@ class Auth
                 $authToken->set('hash', $user->get('password'));
                 $authToken->set('ipAddress', $_SERVER['REMOTE_ADDR']);
                 $authToken->set('userId', $user->id);
+
+                if ($createTokenSecret) {
+                    $secret = $this->generateToken();
+                    $authToken->set('secret', $secret);
+                    $this->setSecretInCookie($secret);
+                }
+
                 if ($this->isPortal()) {
                     $authToken->set('portalId', $this->getPortal()->id);
                 }
@@ -416,10 +427,16 @@ class Auth
 
     public function destroyAuthToken($token)
     {
-        $authToken = $this->getEntityManager()->getRepository('AuthToken')->select(['id', 'isActive'])->where(['token' => $token])->findOne();
+        $authToken = $this->getEntityManager()->getRepository('AuthToken')->select(['id', 'isActive', 'secret'])->where(['token' => $token])->findOne();
         if ($authToken) {
             $authToken->set('isActive', false);
             $this->getEntityManager()->saveEntity($authToken);
+            if ($authToken->get('secret')) {
+                $sentSecret = $_COOKIE['auth-token-secret'] ?? null;
+                if ($sentSecret === $authToken->get('secret')) {
+                    setcookie('auth-token-secret', null, -1, '/');
+                }
+            }
             return true;
         }
     }
@@ -460,5 +477,20 @@ class Auth
 
         $authLogRecord->set('denialReason', $denialReason);
         $this->getEntityManager()->saveEntity($authLogRecord);
+    }
+
+    protected function setSecretInCookie(string $secret)
+    {
+        if (version_compare(\PHP_VERSION, '7.3.0') < 0) {
+            setcookie('auth-token-secret', $secret, strtotime('+1000 days'), '/', '', false, true);
+            return;
+        }
+
+        setcookie('auth-token-secret', $secret, [
+            'expires' => strtotime('+1000 days'),
+            'path' => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
     }
 }

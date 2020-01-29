@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -97,6 +97,9 @@ define('views/list', ['views/main', 'search-manager'], function (Dep, SearchMana
             this.searchView = this.options.searchView || this.searchView;
 
             this.setupHeader();
+
+            this.collection.orderBy = this.defaultOrderBy || this.collection.orderBy;
+            this.collection.order = this.defaultOrder || this.collection.order;
 
             if (this.searchPanel) {
                 this.setupSearchManager();

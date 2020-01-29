@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -56,9 +56,14 @@ class Uninstall extends \Espo\Core\Upgrades\Actions\Base\Uninstall
     {
         /** Set extension entity, isInstalled = false */
         $extensionEntity = $this->getExtensionEntity();
-
         $extensionEntity->set('isInstalled', false);
-        $this->getEntityManager()->saveEntity($extensionEntity);
+
+        try {
+            $this->getEntityManager()->saveEntity($extensionEntity);
+        } catch (\Throwable $e) {
+            $GLOBALS['log']->error('Error saving Extension entity. The error occurred by existing Hook, more details: ' . $e->getMessage() .' at '. $e->getFile() . ':' . $e->getLine());
+            $this->throwErrorAndRemovePackage('Error saving Extension entity. Check logs for details.', false);
+        }
     }
 
     protected function getRestoreFileList()

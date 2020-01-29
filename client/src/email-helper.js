@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -98,7 +98,7 @@ define('email-helper', [], function () {
 
             if (!to || !~to.indexOf('@')) {
                 if (model.get('from')) {
-                    if (model.get('from') != this.getUser().get('emailAddress')) {
+                    if (!~(this.getUser().get('emailAddressList') || []).indexOf(model.get('from'))) {
                         to = model.get('from');
                         if (!nameHash[to]) {
                             var fromString = model.get('fromString') || model.get('fromName');
@@ -182,7 +182,7 @@ define('email-helper', [], function () {
 
             attributes.inReplyTo = model.get('messageId');
 
-            this.addReplyBodyAttrbutes(model, attributes);
+            this.addReplyBodyAttributes(model, attributes);
 
             return attributes;
         },
@@ -310,7 +310,7 @@ define('email-helper', [], function () {
             return address;
         },
 
-        addReplyBodyAttrbutes: function (model, attributes) {
+        addReplyBodyAttributes: function (model, attributes) {
             var format = this.getDateTime().getReadableShortDateTimeFormat();
             var dateSent = model.get('dateSent');
 

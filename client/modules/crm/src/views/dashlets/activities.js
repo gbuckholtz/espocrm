@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -74,7 +74,11 @@ Espo.define('crm:views/dashlets/activities', ['views/dashlets/abstract/base', 'm
                         },
                     ],
                     [
-                        {name: 'dateEnd'}
+                        {name: 'dateEnd'},
+                        {
+                            name: 'priority',
+                            view: 'crm:views/task/fields/priority-for-dashlet',
+                        }
                     ]
                 ]
             }

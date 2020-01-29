@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -53,8 +53,8 @@ Espo.define('views/notification/items/email-received', 'views/notification/items
                 this.messageData['from'] = this.getHelper().escapeString(data.fromString || this.translate('empty address'));
             }
 
-            this.emailId = this.getHelper().escapeString(data.emailId);
-            this.emailName = this.getHelper().escapeString(data.emailName);
+            this.emailId = data.emailId;
+            this.emailName = data.emailName;
 
             this.createMessage();
         }

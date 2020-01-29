@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -135,8 +135,9 @@ Espo.define('views/user/record/edit', ['views/record/edit', 'views/user/record/d
                                     type: 'password',
                                     params: {
                                         required: this.isNew,
-                                        readyToChange: true
-                                    }
+                                        readyToChange: true,
+                                    },
+                                    view: 'views/user/fields/password',
                                 },
                                 {
                                     name: 'generatePassword',
@@ -198,7 +199,10 @@ Espo.define('views/user/record/edit', ['views/record/edit', 'views/user/record/d
             if (this.getConfig().get('smtpServer') && this.getConfig().get('smtpServer') !== '') {
                 return '';
             }
-            return this.translate('setupSmtpBefore', 'messages', 'User').replace('{url}', '#Admin/outboundEmails');
+            var msg = this.translate('setupSmtpBefore', 'messages', 'User').replace('{url}', '#Admin/outboundEmails');
+
+            msg = this.getHelper().transfromMarkdownInlineText(msg);
+            return msg;
         },
 
         fetch: function () {

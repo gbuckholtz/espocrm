@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -376,7 +376,9 @@ Espo.define('views/email/detail', ['views/detail', 'email-helper'], function (De
             var name = Handlebars.Utils.escapeExpression(this.model.get('name'));
             var nameHtml = name;
             if (this.model.get('isImportant')) {
-                nameHtml = '<span class="text-warning">' + name + '</span>'
+                nameHtml = '<span class="text-warning font-size-flexible title">' + name + '</span>'
+            } else {
+                nameHtml = '<span class="font-size-flexible title">' + name + '</span>'
             }
 
             var rootUrl = this.options.rootUrl || this.options.params.rootUrl || '#' + this.scope;
@@ -384,7 +386,7 @@ Espo.define('views/email/detail', ['views/detail', 'email-helper'], function (De
             var headerIconHtml = this.getHeaderIconHtml();
 
             return this.buildHeaderHtml([
-                headerIconHtml+ '<a href="#' + rootUrl + '" class="action" data-action="navigateToRoot">' + this.getLanguage().translate(this.model.name, 'scopeNamesPlural') + '</a>',
+                headerIconHtml+ '<a href="' + rootUrl + '" class="action" data-action="navigateToRoot">' + this.getLanguage().translate(this.model.name, 'scopeNamesPlural') + '</a>',
                 nameHtml
             ]);
         },

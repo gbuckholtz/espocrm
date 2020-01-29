@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -44,6 +44,7 @@ abstract class Base implements Injectable
         'metadata',
         'aclManager',
         'user',
+        'serviceFactory',
     ];
 
     protected $dependencies = []; // for backward compatibility
@@ -117,5 +118,10 @@ abstract class Base implements Injectable
     protected function getMetadata()
     {
         return $this->getInjection('metadata');
+    }
+
+    protected function getServiceFactory()
+    {
+        return $this->getInjection('serviceFactory');
     }
 }

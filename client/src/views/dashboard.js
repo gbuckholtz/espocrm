@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -200,15 +200,100 @@ define('views/dashboard', ['view', 'lib!gridstack'], function (Dep, Gridstack) {
                         gridStack.destroy();
                     }
                 }
+
+                if (this.fallbackModeTimeout) {
+                    clearTimeout(this.fallbackModeTimeout);
+                }
+
+                $(window).off('resize.dashboard');
+
             }, this);
         },
 
         afterRender: function () {
-            this.initGridstack();
+            this.$dashboard = this.$el.find('> .dashlets');
+
+            if (window.innerWidth >= this.getThemeManager().getParam('screenWidthXs')) {
+                this.initGridstack();
+            } else {
+                this.initFallbackMode();
+            }
+
+            $(window).off('resize.dashboard');
+            $(window).on('resize.dashboard', this.onResize.bind(this));
+        },
+
+        onResize: function () {
+            if (this.isFallbackMode() && window.innerWidth >= this.getThemeManager().getParam('screenWidthXs')) {
+                this.initGridstack();
+            }
+        },
+
+        isFallbackMode: function () {
+            return this.$dashboard.hasClass('fallback');
+        },
+
+        initFallbackMode: function () {
+            this.$dashboard.empty();
+
+            var $dashboard = this.$dashboard;
+            $dashboard.addClass('fallback');
+
+            this.currentTabLayout.forEach(function (o) {
+                var $item = this.prepareFallbackItem(o);
+                $dashboard.append($item);
+            }, this);
+
+            this.currentTabLayout.forEach(function (o) {
+                if (!o.id || !o.name) return;
+
+                if (!this.getMetadata().get(['dashlets', o.name])) {
+                    console.error("Dashlet " + o.name + " doesn't exist or not available.");
+                    return;
+                }
+                this.createDashletView(o.id, o.name);
+            }, this);
+
+            if (this.fallbackModeTimeout) {
+                clearTimeout(this.fallbackModeTimeout);
+            }
+
+            this.$dashboard.css('height', '');
+
+            this.fallbackControlHeights();
+        },
+
+        fallbackControlHeights: function () {
+            this.currentTabLayout.forEach(function (o) {
+                var $container = this.$dashboard.find('.dashlet-container[data-id="'+o.id+'"]');
+                var headerHeight = $container.find('.panel-heading').outerHeight();
+                var $body = $container.find('.dashlet-body');
+
+                var bodyEl = $body.get(0);
+                if (!bodyEl) return;
+
+                if (bodyEl.scrollHeight > bodyEl.offsetHeight) {
+                    var height = bodyEl.scrollHeight + headerHeight;
+                    $container.css('height', height + 'px');
+                }
+
+            }, this);
+
+            this.fallbackModeTimeout = setTimeout(function () {
+                this.fallbackControlHeights();
+            }.bind(this), 300);
         },
 
         initGridstack: function () {
-            var $gridstack = this.$gridstack = this.$el.find('> .dashlets');
+            this.$dashboard.empty();
+
+            var $gridstack = this.$gridstack = this.$dashboard;
+
+            $gridstack.removeClass('fallback');
+
+            if (this.fallbackModeTimeout) {
+                clearTimeout(this.fallbackModeTimeout);
+            }
 
             var draggable = false;
             var resizable = false;
@@ -243,6 +328,9 @@ define('views/dashboard', ['view', 'lib!gridstack'], function (Dep, Gridstack) {
 
             this.currentTabLayout.forEach(function (o) {
                 var $item = this.prepareGridstackItem(o.id, o.name);
+                if (!this.getMetadata().get(['dashlets', o.name])) {
+                    return;
+                }
                 grid.addWidget($item, o.x, o.y, o.width, o.height);
             }, this);
 
@@ -250,6 +338,10 @@ define('views/dashboard', ['view', 'lib!gridstack'], function (Dep, Gridstack) {
 
             this.currentTabLayout.forEach(function (o) {
                 if (!o.id || !o.name) return;
+                if (!this.getMetadata().get(['dashlets', o.name])) {
+                    console.error("Dashlet " + o.name + " doesn't exist or not available.");
+                    return;
+                }
                 this.createDashletView(o.id, o.name);
             }, this);
 
@@ -295,6 +387,26 @@ define('views/dashboard', ['view', 'lib!gridstack'], function (Dep, Gridstack) {
             return $item;
         },
 
+        prepareFallbackItem: function (o) {
+            var $item = $('<div></div>');
+            var $container = $('<div class="dashlet-container"></div>');
+
+            $container.attr('data-id', o.id);
+            $container.attr('data-name', o.name);
+            $container.attr('data-x', o.x);
+            $container.attr('data-y', o.y);
+            $container.attr('data-height', o.height);
+            $container.attr('data-width', o.width);
+            $container.css('height', (o.height * this.getThemeManager().getParam('dashboardCellHeight')) + 'px');
+
+            $item.attr('data-id', o.id);
+            $item.attr('data-name', o.name);
+
+            $item.append($container);
+
+            return $item;
+        },
+
         saveLayout: function () {
             if (this.layoutReadOnly) return;
 
@@ -305,6 +417,13 @@ define('views/dashboard', ['view', 'lib!gridstack'], function (Dep, Gridstack) {
         },
 
         removeDashlet: function (id) {
+            var revertToFallback = false;
+            if (this.isFallbackMode()) {
+                this.initGridstack();
+                revertToFallback = true;
+            }
+
+
             var grid = this.$gridstack.data('gridstack');
             var $item = this.$gridstack.find('.grid-stack-item[data-id="'+id+'"]');
             grid.removeWidget($item, true);
@@ -333,13 +452,24 @@ define('views/dashboard', ['view', 'lib!gridstack'], function (Dep, Gridstack) {
             }
 
             this.clearView('dashlet-' + id);
+
+            this.setupCurrentTabLayout();
+
+            if (revertToFallback) {
+                this.initFallbackMode();
+            }
         },
 
         addDashlet: function (name) {
+            var revertToFallback = false;
+            if (this.isFallbackMode()) {
+                this.initGridstack();
+                revertToFallback = true;
+            }
+
             var id = 'd' + (Math.floor(Math.random() * 1000001)).toString();
 
             var $item = this.prepareGridstackItem(id, name);
-
             var grid = this.$gridstack.data('gridstack');
             grid.addWidget($item, 0, 0, 2, 2);
 
@@ -347,8 +477,14 @@ define('views/dashboard', ['view', 'lib!gridstack'], function (Dep, Gridstack) {
                 this.fetchLayout();
                 this.saveLayout();
 
+                this.setupCurrentTabLayout();
+
                 if (view.getView('body') && view.getView('body').afterAdding) {
                     view.getView('body').afterAdding.call(view.getView('body'));
+                }
+
+                if (revertToFallback) {
+                    this.initFallbackMode();
                 }
             }, this);
         },
@@ -363,7 +499,8 @@ define('views/dashboard', ['view', 'lib!gridstack'], function (Dep, Gridstack) {
             if (label) {
                 o.label = label;
             }
-            this.createView('dashlet-' + id, 'views/dashlet', {
+
+            return this.createView('dashlet-' + id, 'views/dashlet', {
                 label: name,
                 name: name,
                 id: id,
@@ -388,6 +525,6 @@ define('views/dashboard', ['view', 'lib!gridstack'], function (Dep, Gridstack) {
                     callback.call(this, view);
                 }
             }, this);
-        }
+        },
     });
 });

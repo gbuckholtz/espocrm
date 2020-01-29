@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -71,7 +71,14 @@ define('acl-manager', ['acl'], function (Acl) {
                 if (scope in this.implementationClassMap) {
                     implementationClass = this.implementationClassMap[scope];
                 }
-                var obj = new implementationClass(this.getUser(), scope, this.aclAllowDeleteCreated);
+                var forbiddenFieldList = this.getScopeForbiddenFieldList(scope);
+                var params = {
+                    aclAllowDeleteCreated: this.aclAllowDeleteCreated,
+                    teamsFieldIsForbidden: !!~forbiddenFieldList.indexOf('teams'),
+                    forbiddenFieldList: forbiddenFieldList,
+                };
+                var obj = new implementationClass(this.getUser(), scope, params);
+
                 this.implementationHash[scope] = obj;
             }
             return this.implementationHash[scope];

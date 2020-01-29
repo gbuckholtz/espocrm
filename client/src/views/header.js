@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -37,8 +37,18 @@ define('views/header', 'view', function (Dep) {
             if ('getHeader' in this.getParentView()) {
                 data.header = this.getParentView().getHeader();
             }
+
             data.scope = this.scope || this.getParentView().scope;
             data.items = this.getItems();
+
+            var dropdown = (data.items || {}).dropdown || [];
+
+            data.hasVisibleDropdownItems = false;
+            dropdown.forEach(function (item) {
+                if (!item.hidden) data.hasVisibleDropdownItems = true;
+            });
+
+            data.noBreakWords = this.options.fontSizeFlexible;
 
             data.isXsSingleRow = this.options.isXsSingleRow;
 
@@ -61,14 +71,66 @@ define('views/header', 'view', function (Dep) {
         },
 
         afterRender: function () {
+            if (this.options.fontSizeFlexible) {
+                this.adjustFontSize();
+            }
+        },
 
+        adjustFontSize: function (step) {
+            step = step || 0;
+
+            if (!step) this.fontSizePercentage = 100;
+
+            var $container = this.$el.find('.header-breadcrumbs');
+            var containerWidth = $container.width();
+            var childrenWidth = 0;
+            $container.children().each(function (i, el) {
+                childrenWidth += $(el).outerWidth(true);
+            });
+
+            if (containerWidth < childrenWidth) {
+                if (step > 7) {
+                    $container.addClass('overlapped');
+                    this.$el.find('.title').each(function (i, el) {
+                        var $el = $(el);
+                        var text = $(el).text();
+                        $el.attr('title', text);
+
+                        var isInitialized = false;
+                        $el.on('touchstart', function () {
+                            if (!isInitialized) {
+                                $el.attr('title', '');
+                                isInitialized = true;
+                                Espo.Ui.popover($el, {
+                                    content: text,
+                                }, this);
+                            }
+                            $el.popover('toggle');
+                        }.bind(this));
+                    }.bind(this));
+                    return;
+                }
+
+                var fontSizePercentage = this.fontSizePercentage -= 4;
+                var $flexible = this.$el.find('.font-size-flexible');
+                $flexible.css('font-size', this.fontSizePercentage + '%');
+
+                $flexible.css('position', 'relative');
+
+                if (step > 6) {
+                    $flexible.css('top', '-1px');
+                } else if (step > 4) {
+                    $flexible.css('top', '-1px');
+                }
+
+                this.adjustFontSize(step + 1);
+            }
         },
 
         getItems: function () {
             var items = this.getParentView().getMenu() || {};
 
             return items;
-        }
+        },
     });
 });
-

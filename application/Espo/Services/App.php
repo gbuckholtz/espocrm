@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -45,6 +45,7 @@ class App extends \Espo\Core\Services\Base
         $this->addDependency('entityManager');
         $this->addDependency('metadata');
         $this->addDependency('selectManagerFactory');
+        $this->addDependency('injectableFactory');
     }
 
     protected function getPreferences()
@@ -75,6 +76,7 @@ class App extends \Espo\Core\Services\Base
         $settingsService = $this->getServiceFactory()->create('Settings');
 
         $user = $this->getUser();
+
         if (!$user->has('teamsIds')) {
             $user->loadLinkMultipleField('teams');
         }
@@ -82,13 +84,6 @@ class App extends \Espo\Core\Services\Base
             $user->loadAccountField();
             $user->loadLinkMultipleField('accounts');
         }
-
-        $userData = $user->getValueMap();
-
-        $emailAddressData = $this->getEmailAddressData();
-
-        $userData->emailAddressList = $emailAddressData->emailAddressList;
-        $userData->userEmailAddressList = $emailAddressData->userEmailAddressList;
 
         $settings = $this->getServiceFactory()->create('Settings')->getConfigData();
 
@@ -100,25 +95,87 @@ class App extends \Espo\Core\Services\Base
             }
         }
 
-        unset($userData->authTokenId);
-        unset($userData->password);
-
         $language = \Espo\Core\Utils\Language::detectLanguage($this->getConfig(), $this->getPreferences());
 
+        $appParams = [
+            'maxUploadSize' => $this->getMaxUploadSize() / 1024.0 / 1024.0,
+            'isRestrictedMode' => $this->getConfig()->get('restrictedMode'),
+            'passwordChangeForNonAdminDisabled' => $this->getConfig()->get('authenticationMethod', 'Espo') !== 'Espo',
+            'timeZoneList' => $this->getMetadata()->get(['entityDefs', 'Settings', 'fields', 'timeZone', 'options'], []),
+        ];
+
+        foreach (($this->getMetadata()->get(['app', 'appParams']) ?? []) as $paramKey => $item) {
+            $className = $item['className'] ?? null;
+            if (!$className) continue;
+            try {
+                $itemParams = $this->getInjection('injectableFactory')->createByClassName($className)->get();
+            } catch (\Throwable $e) {
+                $GLOBALS['log']->error("appParam {$paramKey}: " . $e->getMessage());
+                continue;
+            }
+            $appParams[$paramKey] = $itemParams;
+        }
+
         return [
-            'user' => $userData,
-            'acl' => $this->getAcl()->getMap(),
+            'user' => $this->getUserDataForFrontend(),
+            'acl' => $this->getAclDataForFrontend(),
             'preferences' => $preferencesData,
             'token' => $this->getUser()->get('token'),
             'settings' => $settings,
             'language' => $language,
-            'appParams' => [
-                'maxUploadSize' => $this->getMaxUploadSize() / 1024.0 / 1024.0,
-                'templateEntityTypeList' => $this->getTemplateEntityTypeList(),
-                'isRestrictedMode' => $this->getConfig()->get('restrictedMode'),
-                'passwordChangeForNonAdminDisabled' => $this->getConfig()->get('authenticationMethod', 'Espo') !== 'Espo'
-            ]
+            'appParams' => $appParams,
         ];
+    }
+
+    protected function getUserDataForFrontend()
+    {
+        $user = $this->getUser();
+
+        $emailAddressData = $this->getEmailAddressData();
+
+        $data = $user->getValueMap();
+
+        $data->emailAddressList = $emailAddressData->emailAddressList;
+        $data->userEmailAddressList = $emailAddressData->userEmailAddressList;
+
+        unset($data->authTokenId);
+        unset($data->password);
+
+        $forbiddenAttributeList = $this->getAcl()->getScopeForbiddenAttributeList('User');
+
+        $isPortal = $user->isPortal();
+
+        foreach ($forbiddenAttributeList as $attribute) {
+            if ($attribute === 'type') continue;
+            if ($isPortal) {
+                if (in_array($attribute, ['contactId', 'contactName', 'accountId', 'accountsIds'])) continue;
+            } else {
+                if (in_array($attribute, ['teamsIds', 'defaultTeamId', 'defaultTeamName'])) continue;
+            }
+            unset($data->$attribute);
+        }
+
+        return $data;
+    }
+
+    protected function getAclDataForFrontend()
+    {
+        $data = $this->getAcl()->getMap();
+
+        if (!$this->getUser()->isAdmin()) {
+            $data = unserialize(serialize($data));
+
+            $scopeList = array_keys($this->getMetadata()->get(['scopes'], []));
+            foreach ($scopeList as $scope) {
+                if (!$this->getAcl()->check($scope)) {
+                    unset($data->table->$scope);
+                    unset($data->fieldTable->$scope);
+                    unset($data->fieldTableQuickAccess->$scope);
+                }
+            }
+        }
+
+        return $data;
     }
 
     protected function getEmailAddressData()

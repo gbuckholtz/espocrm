@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -46,6 +46,10 @@ class Uninstall extends \Espo\Core\Upgrades\Actions\Base
 
         $this->setProcessId($processId);
 
+        if (isset($data['parentProcessId'])) {
+            $this->setParentProcessId($data['parentProcessId']);
+        }
+
         $this->initialize();
 
         $this->checkIsWritable();
@@ -76,7 +80,7 @@ class Uninstall extends \Espo\Core\Upgrades\Actions\Base
 
         if (!isset($data['skipSystemRebuild']) || !$data['skipSystemRebuild']) {
             if (!$this->systemRebuild()) {
-                $this->throwErrorAndRemovePackage('Error occurred while EspoCRM rebuild.');
+                $this->throwErrorAndRemovePackage('Error occurred while EspoCRM rebuild. Please see the log for more detail.');
             }
         }
 
@@ -155,10 +159,10 @@ class Uninstall extends \Espo\Core\Upgrades\Actions\Base
         return $res;
     }
 
-    protected function throwErrorAndRemovePackage($errorMessage = '')
+    public function throwErrorAndRemovePackage($errorMessage = '', $deletePackage = true, $systemRebuild = true)
     {
         $this->restoreFiles();
-        throw new Error($errorMessage);
+        parent::throwErrorAndRemovePackage($errorMessage, false, $systemRebuild);
     }
 
     protected function getCopyFileList()

@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -33,12 +33,15 @@ use Espo\Core\Exceptions\Error;
 use Espo\Core\Utils\Config;
 use Espo\Core\ORM\EntityManager;
 use Espo\Core\Utils\Auth;
+use Espo\Entities\AuthToken;
 
 class LDAP extends Espo
 {
     private $utils;
 
     private $ldapClient;
+
+    protected $injections = [];
 
     /**
      * User field name  => option name (LDAP attribute)
@@ -74,16 +77,42 @@ class LDAP extends Espo
         'portalRolesIds' => 'portalUserRolesIds',
     );
 
-    public function __construct(Config $config, EntityManager $entityManager, Auth $auth)
+    public function __construct(Config $config, EntityManager $entityManager)
     {
-        parent::__construct($config, $entityManager, $auth);
+        parent::__construct($config, $entityManager);
 
         $this->utils = new LDAP\Utils($config);
+    }
+
+    public function inject($name, $object)
+    {
+        $this->injections[$name] = $object;
+    }
+
+    protected function getInjection($name)
+    {
+        return $this->injections[$name];
     }
 
     protected function getUtils()
     {
         return $this->utils;
+    }
+
+    protected function getContainer()
+    {
+        return $this->getInjection('container');
+    }
+
+    protected function useSystemUser()
+    {
+        $systemUser = $this->getEntityManager()->getEntity('User', 'system');
+        if (!$systemUser) {
+            throw new Error("System user is not found.");
+        }
+
+        $this->getContainer()->setUser($systemUser);
+        $this->getEntityManager()->setUser($systemUser);
     }
 
     protected function getLdapClient()
@@ -101,24 +130,15 @@ class LDAP extends Espo
         return $this->ldapClient;
     }
 
-    /**
-     * LDAP login
-     *
-     * @param  string $username
-     * @param  string $password
-     * @param  \Espo\Entities\AuthToken $authToken
-     *
-     * @return \Espo\Entities\User | null
-     */
-    public function login($username, $password, \Espo\Entities\AuthToken $authToken = null, $params = [], $request)
+    public function login(string $username, $password, ?AuthToken $authToken = null, array $params = [], $request = null)
     {
-        if (!$password) return;
-
         $isPortal = !empty($params['isPortal']);
 
         if ($authToken) {
             return $this->loginByToken($username, $authToken);
         }
+
+        if (!$password || $username == '**logout') return;
 
         if ($isPortal) {
             $useLdapAuthForPortalUser = $this->getUtils()->getOption('portalUserLdapAuth');
@@ -179,7 +199,12 @@ class LDAP extends Espo
             ]
         ]);
 
-        if (!isset($user) && $this->getUtils()->getOption('createEspoUser')) {
+        if (!isset($user)) {
+            if (!$this->getUtils()->getOption('createEspoUser')) {
+                $this->useSystemUser();
+                throw new Error($this->getContainer()->get('language')->translate('ldapUserInEspoNotFound', 'messages', 'User'));
+            }
+
             $userData = $ldapClient->getEntry($userDn);
             $user = $this->createUser($userData, $isPortal);
         }
@@ -279,11 +304,10 @@ class LDAP extends Espo
             $data[$fieldName] = $fieldValue;
         }
 
-        $this->getAuth()->useNoAuth();
+        $this->useSystemUser();
 
         $user = $this->getEntityManager()->getEntity('User');
         $user->set($data);
-
         $this->getEntityManager()->saveEntity($user);
 
         return $this->getEntityManager()->getEntity('User', $user->id);

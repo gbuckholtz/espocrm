@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -30,6 +30,8 @@
 namespace Espo\Modules\Crm\Business\Event;
 
 use \Espo\ORM\Entity;
+
+use Espo\Core\Utils\Util;
 
 class Invitations
 {
@@ -140,7 +142,7 @@ class Invitations
         }
 
         $data['entityType'] = $this->language->translate($entity->getEntityType(), 'scopeNames');
-        $data['entityTypeLowerFirst'] = lcfirst($data['entityType']);
+        $data['entityTypeLowerFirst'] = Util::mbLowerCaseFirst($data['entityType']);
 
         $htmlizer = new \Espo\Core\Htmlizer\Htmlizer($this->fileManager, $dateTime, $this->number, null);
 

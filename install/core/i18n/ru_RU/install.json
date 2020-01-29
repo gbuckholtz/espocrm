@@ -36,7 +36,11 @@
     "dbHostName": "Сервер БД",
     "dbName": "Имя БД",
     "dbUserName": "Имя пользователя БД",
-    "OK": "ОК"
+    "OK": "ОК",
+    "SetupConfirmation page title": "Системные Требования",
+    "PHP Configuration": "Конфигурация PHP",
+    "MySQL Configuration": "Конфигурация Базы Данных",
+    "Permission Requirements": "Права Доступа"
   },
   "fields": {
     "Choose your language": "Выберите ваш язык",
@@ -73,7 +77,6 @@
     "1045": "Пользователю отказано в доступе",
     "1049": "Неизвестная БД",
     "2005": "Неизвестный MySQL сервер",
-    "Bad init Permission": "Запрещен доступ к директории \"{*}\". Пожалуйста, установите права 775 для \"{*}\" или просто выполните эту команду в терминале <pre><b>{C}</b></pre>\n\tОперация не разрешена? Попробуйте это: {CSU}",
     "Some errors occurred!": "Произошло несколько ошибок!",
     "phpVersion": "Установленная версия PHP не поддерживается EspoCRM, обновите РНР по крайней мере до версии {MinVersion}",
     "requiredMysqlVersion": "Установленная версия MySQL не поддерживается EspoCRM, обновите MySQL по крайней мере до версии {minVersion}",
@@ -92,8 +95,6 @@
     "Cannot create user": "Не удается создать пользователя",
     "Permission denied": "Доступ запрещен",
     "Permission denied to": "Доступ запрещен",
-    "permissionInstruction": "<br>Выполните это в терминале<pre><b>\"{C}\"</b></pre>",
-    "operationNotPermitted": "Операция не разрешена? Попробуйте это: <br>{CSU}",
     "Can not save settings": "Невозможно сохранить настройки",
     "Cannot save preferences": "Невозможно сохранить настройки",
     "Thousand Separator and Decimal Mark equal": "Тысячный разделитель не может быть таким же как и десятичный разделитель",
@@ -104,8 +105,7 @@
   "options": {
     "modRewriteInstruction": {
       "apache": {
-        "windows": "<br> <pre>1. Найдите файл httpd.conf (как правило, вы можете найти его в папке conf, config или в папке с похожим названием)<br>\n2. Внутри файла httpd.conf раскомментируйте строку LoadModule rewrite_module modules/mod_rewrite.so (удалите знак '#' в начале строки)<br>\n3. Также убедитесь что раскомментирована строка ClearModuleList и что строка AddModule mod_rewrite.c не закомментирована.\n</pre>",
-        "linux": "<br><br>1. Подключите модуль \"mod_rewrite\". Для этого выполните в терминале следующие комманды:<pre>{APACHE1}</pre><br>2. Включите поддержку .htaccess. Добавьте/отредактируйте параметры конфигурации сервера (/etc/apache/apache2.conf, /etc/httpd/conf/httpd.conf):<pre>{APACHE2}</pre>\n Потом выполните эту команду в терминале:<pre>{APACHE3}</pre><br>3. Попробуйте добавить путь RewriteBase, откройте файл {API_PATH}.htaccess и замените следующую строку:<pre>{APACHE4}</pre>To<pre>{APACHE5}</pre><br> Для получения более подробной информации, пожалуйста, перейдите <a href=\"https://www.espocrm.com/documentation/administration/apache-server-configuration/\" target=\"_blank\">Apache server configuration for EspoCRM</a>.<br><br>"
+        "windows": "<br> <pre>1. Найдите файл httpd.conf (как правило, вы можете найти его в папке conf, config или в папке с похожим названием)<br>\n2. Внутри файла httpd.conf раскомментируйте строку LoadModule rewrite_module modules/mod_rewrite.so (удалите знак '#' в начале строки)<br>\n3. Также убедитесь что раскомментирована строка ClearModuleList и что строка AddModule mod_rewrite.c не закомментирована.\n</pre>"
       },
       "nginx": {
         "linux": "<br>\n<pre>\n{NGINX}\n</pre> <br> Для получения более подробной информации, пожалуйста, перейдите <a href=\"https://www.espocrm.com/documentation/administration/nginx-server-configuration/\" target=\"_blank\">Nginx server configuration for EspoCRM</a>.<br><br>",
@@ -118,5 +118,12 @@
       "microsoft-iis": "Ошибка API: EspoCRM API недоступен.<br> Возможная проблема: не подключен модуль \"URL Rewrite\". Пожалуйста, проверьте и подключите модуль \"URL Rewrite\" к IIS серверу.",
       "default": "Ошибка API: EspoCRM API недоступен.<br> Возможная проблема: не подключен модуль Rewrite. Пожалуйста, проверьте и подключите к серверу модуль Rewrite (например mod_rewrite в Apache) и поддержку .htaccess."
     }
+  },
+  "systemRequirements": {
+    "requiredPhpVersion": "Версия PHP",
+    "requiredMysqlVersion": "Версия MySQL",
+    "host": "Сервер",
+    "dbname": "Имя БД",
+    "user": "Имя пользователя"
   }
 }

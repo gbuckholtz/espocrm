@@ -15,16 +15,7 @@
             [{"name": "exportDelimiter"}, {"name":"autoFollowEntityTypeList"}],
             [
                 {
-                    "name": "signature",
-                    "params": {
-                        "height": 70,
-                        "toolbar": [
-                            ["style", ["bold", "italic", "underline", "clear"]],
-                            ["color", ["color"]],
-                            ["height", ["height"]],
-                            ["misc",["codeview"]]
-                        ]
-                    }
+                    "name": "signature"
                 },
                 {
                     "name": "defaultReminders"
@@ -87,11 +78,13 @@
         "name": "notifications",
         "rows": [
             [{"name": "receiveAssignmentEmailNotifications"}, {"name": "receiveMentionEmailNotifications"}],
-            [{"name": "receiveStreamEmailNotifications"}, false]
+            [{"name": "receiveStreamEmailNotifications"}, false],
+            [{"name": "assignmentNotificationsIgnoreEntityTypeList"}, {"name": "assignmentEmailNotificationsIgnoreEntityTypeList"}]
         ]
     },
     {
         "label": "SMTP",
+        "name": "smtp",
         "rows": [
             [
                 {

@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -50,6 +50,27 @@ define('view-helper', ['lib!client/lib/purify.min.js'], function () {
         marked.setOptions({
             breaks: true,
             tables: false
+        });
+
+        DOMPurify.addHook('beforeSanitizeAttributes', function (node) {
+            if (node instanceof HTMLAnchorElement) {
+                if (node.getAttribute('target')) {
+                    node.targetBlack = true;
+                } else {
+                    node.targetBlack = false;
+                }
+            }
+        });
+
+        DOMPurify.addHook('afterSanitizeAttributes', function (node) {
+            if (node instanceof HTMLAnchorElement) {
+                if (node.targetBlack) {
+                    node.setAttribute('target', '_blank');
+                    node.setAttribute('rel', 'noopener noreferrer');
+                } else {
+                    node.removeAttribute('rel');
+                }
+            }
         });
     }
 
@@ -204,24 +225,8 @@ define('view-helper', ['lib!client/lib/purify.min.js'], function () {
                 return new Handlebars.SafeString(text);
             });
 
-            Handlebars.registerHelper('complexText', function (text) {
-                text = text || ''
-
-                text = text.replace(this.urlRegex, '$1[$2]($2)');
-
-                text = Handlebars.Utils.escapeExpression(text).replace(/&gt;+/g, '>');
-
-                this.mdBeforeList.forEach(function (item) {
-                    text = text.replace(item.regex, item.value);
-                });
-
-                text = marked(text);
-
-                text = DOMPurify.sanitize(text);
-
-                text = text.replace(/<a href="mailto:(.*)"/gm, '<a href="javascript:" data-email-address="$1" data-action="mailTo"');
-
-                return new Handlebars.SafeString(text);
+            Handlebars.registerHelper('complexText', function (text, options) {
+                return this.transfromMarkdownText(text, options.hash);
             }.bind(this));
 
             Handlebars.registerHelper('translateOption', function (name, options) {
@@ -244,9 +249,8 @@ define('view-helper', ['lib!client/lib/purify.min.js'], function () {
                 if (typeof value === 'undefined') {
                     value = false;
                 }
-                list = list || {};
+                list = list || [];
                 var html = '';
-                var isArray = (Object.prototype.toString.call(list) === '[object Array]');
 
                 var multiple = (Object.prototype.toString.call(value) === '[object Array]');
                 var checkOption = function (name) {
@@ -262,6 +266,13 @@ define('view-helper', ['lib!client/lib/purify.min.js'], function () {
                 var scope = options.hash.scope || false;
                 var category = options.hash.category || false;
                 var field = options.hash.field || false;
+
+                if (!multiple && options.hash.includeMissingOption && (value || value === '')) {
+                    if (!~list.indexOf(value)) {
+                        list = Espo.Utils.clone(list);
+                        list.push(value);
+                    }
+                }
 
                 var translationHash = options.hash.translationHash || options.hash.translatedOptions || null;
 
@@ -284,7 +295,10 @@ define('view-helper', ['lib!client/lib/purify.min.js'], function () {
 
                 for (var key in list) {
                     var keyVal = list[key];
-                    html += "<option value=\"" + keyVal + "\" " + (checkOption(list[key]) ? 'selected' : '') + ">" + translate(list[key]) + "</option>"
+                    var label = translate(list[key]);
+                    keyVal = self.escapeString(keyVal);
+                    label = self.escapeString(label);
+                    html += "<option value=\"" + keyVal + "\" " + (checkOption(list[key]) ? 'selected' : '') + ">" + label + "</option>"
                 }
                 return new Handlebars.SafeString(html);
             });
@@ -292,6 +306,36 @@ define('view-helper', ['lib!client/lib/purify.min.js'], function () {
             Handlebars.registerHelper('basePath', function () {
                 return self.basePath || '';
             });
+        },
+
+        transfromMarkdownInlineText: function (text) {
+            return this.transfromMarkdownText(text, {inline: true});
+        },
+
+        transfromMarkdownText: function (text, options) {
+            text = text || '';
+
+            text = text.replace(this.urlRegex, '$1[$2]($2)');
+
+            text = Handlebars.Utils.escapeExpression(text).replace(/&gt;+/g, '>');
+
+            this.mdBeforeList.forEach(function (item) {
+                text = text.replace(item.regex, item.value);
+            });
+
+            options = options || {};
+
+            if (options.inline) {
+                text = marked.inlineLexer(text, []);
+            } else {
+                text = marked(text);
+            }
+
+            text = DOMPurify.sanitize(text).toString();
+
+            text = text.replace(/<a href="mailto:(.*)"/gm, '<a href="javascript:" data-email-address="$1" data-action="mailTo"');
+
+            return new Handlebars.SafeString(text);
         },
 
         getScopeColorIconHtml: function (scope, noWhiteSpace, additionalClassName) {
@@ -320,6 +364,101 @@ define('view-helper', ['lib!client/lib/purify.min.js'], function () {
 
         sanitizeHtml: function (text, options) {
             return DOMPurify.sanitize(text, options);
+        },
+
+        moderateSanitizeHtml: function (value) {
+            value = value || '';
+            value = value.replace(/<[\/]{0,1}(base)[^><]*>/gi, '');
+            value = value.replace(/<[\/]{0,1}(object)[^><]*>/gi, '');
+            value = value.replace(/<[\/]{0,1}(embed)[^><]*>/gi, '');
+            value = value.replace(/<[\/]{0,1}(applet)[^><]*>/gi, '');
+            value = value.replace(/<[\/]{0,1}(iframe)[^><]*>/gi, '');
+            value = value.replace(/<[\/]{0,1}(script)[^><]*>/gi, '');
+            value = value.replace(/<[^><]*([^a-z]{1}on[a-z]+)=[^><]*>/gi, function (match) {
+                return match.replace(/[^a-z]{1}on[a-z]+=/gi, ' data-handler-stripped=');
+            });
+
+            value = this.stripEventHandlersInHtml(value);
+
+            value = value.replace(/href=" *javascript\:(.*?)"/gi, function(m, $1) {
+                return 'removed=""';
+            });
+            value = value.replace(/href=' *javascript\:(.*?)'/gi, function(m, $1) {
+                return 'removed=""';
+            });
+            value = value.replace(/src=" *javascript\:(.*?)"/gi, function(m, $1) {
+                return 'removed=""';
+            });
+            value = value.replace(/src=' *javascript\:(.*?)'/gi, function(m, $1) {
+                return 'removed=""';
+            });
+
+            return value;
+        },
+
+        stripEventHandlersInHtml: function (html) {
+            function stripHTML(){
+                html = html.slice(0, strip) + html.slice(j);
+                j = strip;
+                strip = false;
+            }
+            function isValidTagChar(str) {
+                return str.match(/[a-z?\\\/!]/i);
+            }
+            var strip = false;
+            var lastQuote = false;
+            for (var i = 0; i<html.length; i++){
+                if (html[i] === "<" && html[i+1] && isValidTagChar(html[i+1])) {
+                    i++;
+                    for (var j = i; j<html.length; j++){
+                        if (!lastQuote && html[j] === ">"){
+                            if (strip) {
+                                stripHTML();
+                            }
+                            i = j;
+                            break;
+                        }
+                        if (lastQuote === html[j]){
+                            lastQuote = false;
+                            continue;
+                        }
+                        if (!lastQuote && html[j-1] === "=" && (html[j] === "'" || html[j] === '"')){
+                            lastQuote = html[j];
+                        }
+                        if (!lastQuote && html[j-2] === " " && html[j-1] === "o" && html[j] === "n"){
+                            strip = j-2;
+                        }
+                        if (strip && html[j] === " " && !lastQuote){
+                            stripHTML();
+                        }
+                    }
+                }
+            }
+            return html;
+        },
+
+        calculateContentContainerHeight: function ($el) {
+            var smallScreenWidth = this.themeManager.getParam('screenWidthXs');
+            var $window = $(window);
+
+            var footerHeight = $('#footer').height() || 26;
+            var top = 0;
+            var element = $el.get(0);
+
+            if (element) {
+                top = element.getBoundingClientRect().top;
+
+                if ($window.width() < smallScreenWidth) {
+                    var $navbarCollapse = $('#navbar .navbar-body');
+                    if ($navbarCollapse.hasClass('in') || $navbarCollapse.hasClass('collapsing')) {
+                        top -= $navbarCollapse.height();
+                    }
+                }
+            }
+
+            var spaceHeight = top + footerHeight;
+
+            return $window.height() - spaceHeight - 20;
         },
     });
 

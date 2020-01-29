@@ -3,7 +3,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -47,6 +47,7 @@ class LeadCapture extends Record
         $this->addDependency('container');
         $this->addDependency('defaultLanguage');
         $this->addDependency('hookManager');
+        $this->addDependency('dateTime');
     }
 
     protected function getMailSender()
@@ -163,12 +164,20 @@ class LeadCapture extends Record
             if ($hasDuplicate) {
                 $this->logLeadCapture($leadCapture, $target, $data, false);
                 $isLogged = true;
+
+                if ($leadCapture->get('skipOptInConfirmationIfSubscribed') && $leadCapture->get('targetListId')) {
+                    $isAlreadyOptedIn = $this->isTargetOptedIn($target, $leadCapture->get('targetListId'));
+                    if ($isAlreadyOptedIn) {
+                        return true;
+                    }
+                }
             }
 
             if ($leadCapture->get('createLeadBeforeOptInConfirmation')) {
                 if (!$hasDuplicate) {
                     $this->getEntityManager()->saveEntity($lead);
                     $this->logLeadCapture($leadCapture, $target, $data, true);
+                    $isLogged = true;
                 }
             }
 
@@ -318,12 +327,16 @@ class LeadCapture extends Record
             }
         }
 
+        $isContactOptedIn = false;
+
         if ($leadCapture->get('subscribeToTargetList') && $leadCapture->get('targetListId')) {
             $isAlreadyOptedIn = false;
 
             if ($contact) {
                 if ($leadCapture->get('subscribeContactToTargetList')) {
                     $isAlreadyOptedIn = $this->isTargetOptedIn($contact, $leadCapture->get('targetListId'));
+                    $isContactOptedIn = $isAlreadyOptedIn;
+
                     if (!$isAlreadyOptedIn) {
                         $this->getEntityManager()->getRepository('Contact')->relate($contact, 'targetLists', $leadCapture->get('targetListId'), [
                             'optedOut' => false,
@@ -339,6 +352,7 @@ class LeadCapture extends Record
                                'link' => 'contacts',
                                'targetId' => $contact->id,
                                'targetType' => 'Contact',
+                               'leadCaptureId' => $leadCapture->id,
                             ]);
                         }
                     }
@@ -357,9 +371,19 @@ class LeadCapture extends Record
             }
         }
 
+        if ($contact && (!$isContactOptedIn || !$leadCapture->get('subscribeToTargetList'))) {
+            $this->getInjection('hookManager')->process('LeadCapture', 'afterLeadCapture', $leadCapture, [], [
+               'targetId' => $contact->id,
+               'targetType' => 'Contact',
+            ]);
+            $this->getInjection('hookManager')->process('Contact', 'afterLeadCapture', $contact, [], [
+               'leadCaptureId' => $leadCapture->id,
+            ]);
+        }
+
         $isNew = !$duplicate && !$contact;
 
-        if (!$contact) {
+        if (!$contact || !$leadCapture->get('subscribeContactToTargetList')) {
             if ($leadCapture->get('targetTeamId')) {
                 $lead->addLinkMultipleId('teams', $leadCapture->get('targetTeamId'));
             }
@@ -386,8 +410,19 @@ class LeadCapture extends Record
                    'link' => 'leads',
                    'targetId' => $targetLead->id,
                    'targetType' => 'Lead',
+                   'leadCaptureId' => $leadCapture->id,
                 ]);
             }
+        }
+
+        if ($toRelateLead  || !$leadCapture->get('subscribeToTargetList')) {
+            $this->getInjection('hookManager')->process('LeadCapture', 'afterLeadCapture', $leadCapture, [], [
+               'targetId' => $targetLead->id,
+               'targetType' => 'Lead',
+            ]);
+            $this->getInjection('hookManager')->process('Lead', 'afterLeadCapture', $targetLead, [], [
+               'leadCaptureId' => $leadCapture->id,
+            ]);
         }
 
         if (!$isLogged) {
@@ -511,6 +546,17 @@ class LeadCapture extends Record
         $body = str_replace('{optInUrl}', $url, $body);
         $body = str_replace('{optInLink}', $linkHtml, $body);
 
+        $createdAt = $uniqueId->get('createdAt');
+        if ($createdAt) {
+            $dateString = $this->getInjection('dateTime')->convertSystemDateTime($createdAt, null, $this->getConfig()->get('dateFormat'));
+            $timeString = $this->getInjection('dateTime')->convertSystemDateTime($createdAt, null, $this->getConfig()->get('timeFormat'));
+            $dateTimeString = $this->getInjection('dateTime')->convertSystemDateTime($createdAt);
+
+            $body = str_replace('{optInDate}', $dateString, $body);
+            $body = str_replace('{optInTime}', $timeString, $body);
+            $body = str_replace('{optInDateTime}', $dateTimeString, $body);
+        }
+
         $email = $this->getEntityManager()->getEntity('Email');
         $email->set([
             'to' => $emailAddress,
@@ -519,7 +565,38 @@ class LeadCapture extends Record
             'isHtml' => $isHtml,
         ]);
 
-        $this->getMailSender()->send($email);
+        $smtpParams = null;
+
+        $inboundEmailId = $leadCapture->get('inboundEmailId');
+
+        if ($inboundEmailId) {
+            $inboundEmail = $this->getEntityManager()->getEntity('InboundEmail', $inboundEmailId);
+            if (!$inboundEmail) {
+                throw new Error("Lead Capture: Group Email Account {$inboundEmailId} is not available.");
+            }
+
+            if (
+                $inboundEmail->get('status') !== 'Active'
+                ||
+                !$inboundEmail->get('useSmtp')
+            ) {
+                throw new Error("Lead Capture:  Group Email Account {$inboundEmailId} can't be used for Lead Capture.");
+            }
+
+            $inboundEmailService = $this->getServiceFactory()->create('InboundEmail');
+            $smtpParams = $inboundEmailService->getSmtpParamsFromAccount($inboundEmail);
+            if (!$smtpParams) {
+                throw new Error("Lead Capture: Group Email Account {$inboundEmailId} has no SMTP params.");
+            }
+        }
+
+        $sender = $this->getMailSender();
+
+        if ($smtpParams) {
+            $sender->useSmtp($smtpParams);
+        }
+
+        $sender->send($email);
 
         return true;
     }
@@ -564,5 +641,32 @@ class LeadCapture extends Record
             'leadCaptureName' => $leadCapture->get('name'),
             'leadCaptureId' => $leadCapture->id,
         ];
+    }
+
+    public function getSmtpAccountDataList()
+    {
+        if (!$this->getUser()->isAdmin()) throw new Forbidden();
+
+        $dataList = [];
+
+        $inboundEmailList = $this->getEntityManager()->getRepository('InboundEmail')->where([
+            'useSmtp' => true,
+            'status' => 'Active',
+
+            ['emailAddress!=' => ''],
+            ['emailAddress!=' => null],
+        ])->find();
+
+        foreach ($inboundEmailList as $inboundEmail) {
+            $item = (object) [];
+            $key = 'inboundEmail:' . $inboundEmail->id;
+            $item->key = $key;
+            $item->emailAddress = $inboundEmail->get('emailAddress');
+            $item->fromName = $inboundEmail->get('fromName');
+
+            $dataList[] = $item;
+        }
+
+        return $dataList;
     }
 }

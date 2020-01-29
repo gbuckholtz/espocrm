@@ -2,7 +2,7 @@
  * This file is part of EspoCRM.
  *
  * EspoCRM - Open Source CRM application.
- * Copyright (C) 2014-2019 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
+ * Copyright (C) 2014-2020 Yuri Kuznetsov, Taras Machyshyn, Oleksiy Avramenko
  * Website: https://www.espocrm.com
  *
  * EspoCRM is free software: you can redistribute it and/or modify
@@ -74,9 +74,18 @@ define('views/modal', 'view', function (Dep) {
             this.header = this.options.header || this.header;
             this.headerHtml = this.options.headerHtml || this.headerHtml;
 
+            if (this.options.headerText) {
+                this.headerHtml = Handlebars.Utils.escapeExpression(this.options.headerText);
+            }
+
             this.options = this.options || {};
 
+            this.backdrop = this.options.backdrop || this.backdrop;
+
             this.setSelector(this.containerSelector);
+
+            this.buttonList = this.options.buttonList || this.buttonList;
+            this.dropdownItemList = this.options.dropdownItemList || this.dropdownItemList;
 
             this.buttonList = Espo.Utils.cloneDeep(this.buttonList);
             this.dropdownItemList = Espo.Utils.cloneDeep(this.dropdownItemList);
@@ -127,6 +136,10 @@ define('views/modal', 'view', function (Dep) {
             this.on('after:render', function () {
                 $(containerSelector).show();
                 this.dialog.show();
+
+                if (this.fixedHeaderHeight && this.flexibleHeaderFontSize) {
+                    this.adjustHeaderFontSize();
+                }
             });
 
             this.once('remove', function () {
@@ -396,6 +409,38 @@ define('views/modal', 'view', function (Dep) {
                 }
             }, this);
             return isEmpty;
+        },
+
+        adjustHeaderFontSize: function (step) {
+            step = step || 0;
+
+            if (!step) this.fontSizePercentage = 100;
+
+            var $titleText = this.$el.find('.modal-title > .modal-title-text');
+
+            var containerWidth = $titleText.width();
+
+            var textWidth = 0;
+            $titleText.children().each(function (i, el) {
+                textWidth += $(el).outerWidth(true);
+            });
+
+            if (containerWidth < textWidth) {
+                if (step > 5) {
+                    var $title = this.$el.find('.modal-title');
+                    $title.attr('title', $titleText.text());
+                    $title.addClass('overlapped');
+                    $titleText.children().each(function (i, el) {
+                       $(el).removeAttr('title');
+                    });
+                    return;
+                }
+
+                var fontSizePercentage = this.fontSizePercentage -= 4;
+                this.$el.find('.modal-title .font-size-flexible').css('font-size', this.fontSizePercentage + '%');
+
+                this.adjustHeaderFontSize(step + 1);
+            }
         },
     });
 });
